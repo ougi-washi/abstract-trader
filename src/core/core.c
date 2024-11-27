@@ -25,6 +25,15 @@ void at_add_tick(at_symbol *symbol, at_tick *tick){
     symbol->ticks[symbol->tick_count - 1] = *tick;
 }
 
+void at_add_ticks(at_symbol *symbol, at_tick *ticks, sz count){
+    assert(symbol && ticks && count > 0);
+    symbol->tick_count += count;
+    symbol->ticks = (at_tick *)realloc(symbol->ticks, sizeof(at_tick) * symbol->tick_count);
+    for (u32 i = 0; i < count; i++){
+        symbol->ticks[symbol->tick_count - count + i] = ticks[i];
+    }
+}
+
 at_tick* at_get_tick(at_symbol *symbol, u32 index){
     assert(symbol);
     if (index < symbol->tick_count){
@@ -117,11 +126,6 @@ void at_add_order(at_account *account, at_order *order){
     account->margin_level = account->equity / account->margin;
 }
 
-void at_remove_order(at_account *account, at_order *order){
-    assert(account && order);
-    account->margin -= order->volume * order->price;
-}
-
 void at_update_order(at_account *account, at_order *order, f64 price){
     account->margin -= order->volume * order->price;
     account->margin += order->volume * price;
@@ -149,6 +153,19 @@ void at_free_order(at_order *order){
     // Nothing to free
 }
 
+void at_init_strategy(at_strategy *strategy, c8 *name, on_start_callback on_start, on_tick_callback on_tick, on_candle_callback on_candle){
+    assert(strategy && name && on_start && on_tick && on_candle);
+    strategy->id = at_new_id();
+    strategy->name = name;
+    strategy->on_start = on_start;
+    strategy->on_tick = on_tick;
+    strategy->on_candle = on_candle;
+}
+
+void at_free_strategy(at_strategy *strategy){
+    // Nothing to free
+}
+
 void at_init_instance(at_instance *instance, at_strategy *strategy, at_symbol *symbol, at_account *account){
     assert(instance && strategy && symbol && account);
     instance->id = at_new_id();
@@ -167,6 +184,13 @@ void at_free_instance(at_instance *instance){
     free(instance->orders);
 }
 
+void at_add_trade(at_instance *instance, at_trade *trade){
+    assert(instance && trade);
+    instance->trade_count++;
+    instance->trades = (at_trade *)realloc(instance->trades, sizeof(at_trade) * instance->trade_count);
+    instance->trades[instance->trade_count - 1] = *trade;
+}
+
 void at_tick_instance(at_instance *instance, at_tick *tick){
     assert(instance && tick);
     instance->strategy->on_tick(instance, tick);
@@ -177,7 +201,6 @@ void at_tick_instance(at_instance *instance, at_tick *tick){
         if (order->symbol == instance->symbol->name){
             if (order->price >= tick->price){
                 at_close_order(instance->account, order, tick->price);
-                at_remove_order(instance->account, order);
             }
         }
     }
