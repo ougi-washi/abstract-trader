@@ -19,7 +19,8 @@ i32 main(i32 argc, c8 **argv) {
     at_symbol symbol = {0};
     at_init_symbol(&symbol, "AAPL", "NASDAQ", "USD", 1000);    
     at_add_ticks(&symbol, ticks_sample, sizeof(ticks_sample) / sizeof(at_tick));
-    at_candle *candles = at_get_candles(&symbol, 5);
+    u32 candle_count = 0;
+    at_candle *candles = at_get_candles(&symbol, 5, candle_count);
     if (candles){
         for (u32 i = 0; i < symbol.tick_count / 5; i++){
             log_info("Candle %d: Open: %.2f, Close: %.2f", i, candles[i].open, candles[i].close);

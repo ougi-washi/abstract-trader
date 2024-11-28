@@ -46,28 +46,40 @@ at_tick* at_get_last_tick(at_symbol* symbol){
     return at_get_tick(symbol, 0);
 }
 
-at_candle* at_get_candles(at_symbol* symbol, u32 period){
+at_candle* at_get_candles(at_symbol* symbol, u32 period, u32* out_candle_count) {
     assert(symbol && period > 0);
-    if (symbol->tick_count % period != 0){
-        return NULL;
+    if (symbol->tick_count < period) {
+        *out_candle_count = 0;
+        return NULL;  // Not enough data to create even one candle
     }
 
-    at_candle* candles = (at_candle* )malloc(sizeof(at_candle) * (symbol->tick_count / period));
-    for (u32 i = 0; i < symbol->tick_count; i++){
-        if (i % period == 0){
-            at_candle candle = {0};
-            candle.open = symbol->ticks[i].price;
-            candle.close = symbol->ticks[i + period - 1].price;
-            candle.volume = 0;
-            candle.adj_close = 0;
-            for (u32 j = i; j < i + period; j++){
-                candle.volume += symbol->ticks[j].volume;
-                candle.adj_close += symbol->ticks[j].price;
-            }
-            candle.adj_close /= period;
-            candles[i / period] = candle;
-        }
+    // Calculate the number of candles we can generate
+    u32 candle_count = symbol->tick_count / period;
+    at_candle* candles = (at_candle*)malloc(sizeof(at_candle) * candle_count);
+    if (!candles) {
+        return NULL; // Allocation failed
     }
+
+    for (u32 i = 0; i < candle_count; i++) {
+        u32 start_idx = i * period;
+        u32 end_idx = start_idx + period - 1;
+
+        at_candle candle = {0};
+        candle.open = symbol->ticks[start_idx].price;
+        candle.close = symbol->ticks[end_idx].price;
+        candle.volume = 0;
+        candle.adj_close = 0;
+
+        for (u32 j = start_idx; j <= end_idx; j++) {
+            candle.volume += symbol->ticks[j].volume;
+            candle.adj_close += symbol->ticks[j].price;
+        }
+
+        candle.adj_close /= period; // Average price for the period
+        candles[i] = candle;
+    }
+
+    *out_candle_count = candle_count;
     return candles;
 }
 
@@ -195,7 +207,8 @@ void at_tick_instance(at_instance* instance, at_tick* tick){
     assert(instance && tick);
     at_add_tick(instance->symbol, tick);
     instance->strategy->on_tick(instance, tick);
-    instance->strategy->on_candle(instance, at_get_candles(instance->symbol, 5));
+    i32 candle_count = 0;
+    instance->strategy->on_candle(instance, at_get_candles(instance->symbol, 5, &candle_count));
 
     for (u32 i = 0; i < instance->order_count; i++){
         at_order* order = &instance->orders[i];
