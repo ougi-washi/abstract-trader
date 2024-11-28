@@ -34,14 +34,22 @@ endmacro()
 
 find_package(Threads REQUIRED)
 
-# RAYLIB
-# message(STATUS "Adding Raylib library")
-# add_subdirectory(${LIB_DIR}/raylib)
+# GLFW
+find_package(glfw3 REQUIRED)
+if (NOT glfw3_FOUND)
+    message(FATAL_ERROR "GLFW not found!")
+endif()
+
+# OpenGL
+find_package(OpenGL REQUIRED)
+if (NOT OPENGL_FOUND)
+    message(FATAL_ERROR "OpenGL not found!")
+endif()
 
 # Main module
 set(MAIN_MODULE_INCLUDES ${PROJECT_SOURCE_DIR}/${SRC_DIR} ${PROJECT_SOURCE_DIR}/${LIB_DIR})
 setup_library(main_module ${SRC_DIR} "${MAIN_MODULE_INCLUDES}")
-# target_link_libraries(main_module PUBLIC raylib) # Uncomment if using raylib
+target_link_libraries(main_module PUBLIC OpenGL::GL glfw Threads::Threads)
 
 # Executable
 add_executable(${PROJECT_NAME} main.c)

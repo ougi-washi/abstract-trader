@@ -2,7 +2,7 @@
   
 #include "core/types.h"
 #include "core/log.h"
-#include "core/core.h"
+#include "core/render.h"
 
 at_tick ticks_sample[] = {
     {100.0, 100.0}, {101.0, 100.0}, {102.0, 100.0}, {103.0, 100.0}, {104.0, 100.0}, {105.0, 100.0}, 
@@ -23,21 +23,33 @@ at_tick ticks_sample[] = {
 };
 
 i32 main(i32 argc, c8 **argv) {
+
+    at_render render = {0};
+    at_init_render(&render);
     at_symbol symbol = {0};
     at_init_symbol(&symbol, "AAPL", "NASDAQ", "USD", 0);
     sz ticks_count = sizeof(ticks_sample) / sizeof(at_tick);
     at_add_ticks(&symbol, ticks_sample, ticks_count);
 
     u32 candle_count = 0;
-    at_candle* candles = at_get_candles(&symbol, 3, &candle_count); // 1-minute candles
+    at_candle* candles = at_get_candles(&symbol, 3, &candle_count); // 3 seconds candles (if ticks are in seconds)
     if (candles) {
         for (u32 i = 0; i < candle_count; i++) {
             printf("Candle %u: Open=%.2f, High=%.2f, Low=%.2f, Close=%.2f, Volume=%.2f\n",
                 i, candles[i].open, candles[i].high, candles[i].low,
                 candles[i].close, candles[i].volume);
         }
-        free(candles); // Clean up memory
     }
+
+    at_render_object object = {0};
+    at_candles_to_render_object(candles, candle_count, &object);
+    at_add_render_object(&render, &object);
+
+    while (at_should_loop_render(&render)) {
+        at_draw_render(&render);
+    }
+
+    free(candles);
     at_free_symbol(&symbol);
     return 0;
 }
