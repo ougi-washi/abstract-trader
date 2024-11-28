@@ -44,6 +44,9 @@ typedef void (APIENTRY * PFNGLGETSHADERIV)(GLuint shader, GLenum pname, GLint *p
 typedef void (APIENTRY * PFNGLGETSHADERINFOLOG)(GLuint shader, GLsizei bufSize, GLsizei *length, GLchar *infoLog);
 typedef void (APIENTRY * PFNGLGETPROGRAMIV)(GLuint program, GLenum pname, GLint *params);
 typedef void (APIENTRY * PFNGLGETPROGRAMINFOLOG)(GLuint program, GLsizei bufSize, GLsizei *length, GLchar *infoLog);
+typedef void (APIENTRY * PFNGLDRAWELEMENTSINSTANCEDPROC)(GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei primcount);
+typedef void* (APIENTRY * PFNGLMAPBUFFERPROC)(GLenum target, GLenum access);
+typedef GLboolean (APIENTRY * PFNGLUNMAPBUFFERPROC)(GLenum target);
 
 extern PFNGLDELETEBUFFERS glDeleteBuffers;
 extern PFNGLGENBUFFERS glGenBuffers;
@@ -76,5 +79,8 @@ extern PFNGLGETSHADERIV glGetShaderiv;
 extern PFNGLGETSHADERINFOLOG glGetShaderInfoLog; 
 extern PFNGLGETPROGRAMIV glGetProgramiv;
 extern PFNGLGETPROGRAMINFOLOG glGetProgramInfoLog;
+extern PFNGLDRAWELEMENTSINSTANCEDPROC glDrawElementsInstanced;
+extern PFNGLMAPBUFFERPROC glMapBuffer;
+extern PFNGLUNMAPBUFFERPROC glUnmapBuffer;
 
 extern void at_init_opengl();
