@@ -1,4 +1,5 @@
 #include "core.h"
+#include "log.h"
 #include <stdlib.h>
 #include <assert.h>
 
@@ -25,14 +26,21 @@ void at_add_tick(at_symbol* symbol, at_tick* tick){
     symbol->ticks[symbol->tick_count - 1] =* tick;
 }
 
-void at_add_ticks(at_symbol* symbol, at_tick* ticks, sz count){
+void at_add_ticks(at_symbol* symbol, at_tick* ticks, sz count) {
     assert(symbol && ticks && count > 0);
+    u32 current_count = symbol->tick_count;
     symbol->tick_count += count;
-    symbol->ticks = (at_tick* )realloc(symbol->ticks, sizeof(at_tick)*  symbol->tick_count);
-    for (u32 i = 0; i < count; i++){
-        symbol->ticks[symbol->tick_count - count + i] = ticks[i];
+    symbol->ticks = (at_tick*)realloc(symbol->ticks, sizeof(at_tick) * symbol->tick_count);
+    if (!symbol->ticks) {
+        log_error("Failed to allocate memory for ticks");
+        symbol->tick_count = 0;
+        return;
+    }
+    for (u32 i = 0; i < count; i++) {
+        symbol->ticks[current_count + i] = ticks[i];
     }
 }
+
 
 at_tick* at_get_tick(at_symbol* symbol, u32 index){
     assert(symbol);
@@ -47,32 +55,43 @@ at_tick* at_get_last_tick(at_symbol* symbol){
 }
 
 at_candle* at_get_candles(at_symbol* symbol, u32 period, u32* out_candle_count) {
-    assert(symbol && period > 0);
+    assert(symbol && period > 0 && out_candle_count);
     if (symbol->tick_count < period) {
         *out_candle_count = 0;
-        return NULL;  // Not enough data to create even one candle
+        log_error("Not enough ticks to create candles");
+        return NULL; 
     }
 
-    // Calculate the number of candles we can generate
     u32 candle_count = symbol->tick_count / period;
     at_candle* candles = (at_candle*)malloc(sizeof(at_candle) * candle_count);
     if (!candles) {
-        return NULL; // Allocation failed
+        log_error("Failed to allocate memory for candles");
+        return NULL; 
     }
 
     for (u32 i = 0; i < candle_count; i++) {
         u32 start_idx = i * period;
-        u32 end_idx = start_idx + period - 1;
+        u32 end_idx = start_idx + period;  // End index is exclusive
 
         at_candle candle = {0};
         candle.open = symbol->ticks[start_idx].price;
-        candle.close = symbol->ticks[end_idx].price;
+        candle.high = candle.open;
+        candle.low = candle.open;
+        candle.close = symbol->ticks[end_idx - 1].price;
         candle.volume = 0;
         candle.adj_close = 0;
 
-        for (u32 j = start_idx; j <= end_idx; j++) {
+        for (u32 j = start_idx; j < end_idx; j++) {
+            f64 price = symbol->ticks[j].price;
             candle.volume += symbol->ticks[j].volume;
-            candle.adj_close += symbol->ticks[j].price;
+            candle.adj_close += price;
+
+            if (price > candle.high) {
+                candle.high = price;
+            }
+            if (price < candle.low) {
+                candle.low = price;
+            }
         }
 
         candle.adj_close /= period; // Average price for the period
@@ -207,7 +226,7 @@ void at_tick_instance(at_instance* instance, at_tick* tick){
     assert(instance && tick);
     at_add_tick(instance->symbol, tick);
     instance->strategy->on_tick(instance, tick);
-    i32 candle_count = 0;
+    u32 candle_count = 0;
     instance->strategy->on_candle(instance, at_get_candles(instance->symbol, 5, &candle_count));
 
     for (u32 i = 0; i < instance->order_count; i++){

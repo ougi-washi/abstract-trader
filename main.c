@@ -12,20 +12,31 @@ at_tick ticks_sample[] = {
     {124.0, 100.0}, {125.0, 100.0}, {126.0, 100.0}, {127.0, 100.0}, {128.0, 100.0}, {129.0, 100.0}, 
     {130.0, 100.0}, {131.0, 100.0}, {132.0, 100.0}, {133.0, 100.0}, {134.0, 100.0}, {135.0, 100.0}, 
     {136.0, 100.0}, {137.0, 100.0}, {138.0, 100.0}, {139.0, 100.0}, {140.0, 100.0}, {141.0, 100.0}, 
-    {142.0, 100.0}, {143.0, 100.0}, {144.0, 100.0}
+    {142.0, 100.0}, {143.0, 100.0}, {144.0, 100.0}, {145.0, 100.0}, {146.0, 100.0}, {147.0, 100.0}, 
+    {148.0, 100.0}, {149.0, 100.0}, {150.0, 100.0}, {151.0, 100.0}, {152.0, 100.0}, {153.0, 100.0}, 
+    {154.0, 100.0}, {155.0, 100.0}, {156.0, 100.0}, {157.0, 100.0}, {158.0, 100.0}, {159.0, 100.0}, 
+    {160.0, 100.0}, {161.0, 100.0}, {162.0, 100.0}, {163.0, 100.0}, {164.0, 100.0}, {165.0, 100.0}, 
+    {166.0, 100.0}, {167.0, 100.0}, {168.0, 100.0}, {169.0, 100.0}, {170.0, 100.0}, {171.0, 100.0}, 
+    {172.0, 100.0}, {173.0, 100.0}, {174.0, 100.0}, {175.0, 100.0}, {176.0, 100.0}, {177.0, 100.0}, 
+    {178.0, 100.0}, {179.0, 100.0}, {180.0, 100.0}, {181.0, 100.0}, {182.0, 100.0}, {183.0, 100.0}, 
+    {184.0, 100.0}, {185.0, 100.0}, {186.0, 100.0}, {187.0, 100.0}, {188.0, 100.0}, {189.0, 100.0}
 };
 
 i32 main(i32 argc, c8 **argv) {
     at_symbol symbol = {0};
-    at_init_symbol(&symbol, "AAPL", "NASDAQ", "USD", 1000);    
-    at_add_ticks(&symbol, ticks_sample, sizeof(ticks_sample) / sizeof(at_tick));
+    at_init_symbol(&symbol, "AAPL", "NASDAQ", "USD", 0);
+    sz ticks_count = sizeof(ticks_sample) / sizeof(at_tick);
+    at_add_ticks(&symbol, ticks_sample, ticks_count);
+
     u32 candle_count = 0;
-    at_candle *candles = at_get_candles(&symbol, 5, candle_count);
-    if (candles){
-        for (u32 i = 0; i < symbol.tick_count / 5; i++){
-            log_info("Candle %d: Open: %.2f, Close: %.2f", i, candles[i].open, candles[i].close);
+    at_candle* candles = at_get_candles(&symbol, 3, &candle_count); // 1-minute candles
+    if (candles) {
+        for (u32 i = 0; i < candle_count; i++) {
+            printf("Candle %u: Open=%.2f, High=%.2f, Low=%.2f, Close=%.2f, Volume=%.2f\n",
+                i, candles[i].open, candles[i].high, candles[i].low,
+                candles[i].close, candles[i].volume);
         }
-        free(candles);
+        free(candles); // Clean up memory
     }
     at_free_symbol(&symbol);
     return 0;
