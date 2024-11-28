@@ -2,6 +2,7 @@
 #pragma once
 
 #include "core/types.h"
+#include <stdlib.h>
 
 typedef u32 at_id;
 
@@ -24,7 +25,7 @@ typedef struct at_symbol {
     c8* exchange;
     c8* currency;
     sz tick_count;
-    at_tick *ticks;
+    at_tick* ticks;
 } at_symbol;
 
 typedef struct at_account {
@@ -83,30 +84,31 @@ typedef struct at_strategy {
 
 extern at_id at_new_id();
 
-extern void at_init_symbol(at_symbol *symbol, c8 *name, c8 *exchange, c8 *currency, sz tick_count);
-extern void at_add_ticks(at_symbol *symbol, at_tick *ticks, sz count);
-extern at_tick* at_get_tick(at_symbol *symbol, u32 index);
-extern at_tick* at_get_last_tick(at_symbol *symbol);
-extern at_candle* at_get_candles(at_symbol *symbol, u32 period);
-extern void at_free_symbol(at_symbol *symbol);
+extern void at_init_symbol(at_symbol* symbol, c8* name, c8* exchange, c8* currency, sz tick_count);
+extern void at_add_tick(at_symbol* symbol, at_tick* tick);
+extern void at_add_ticks(at_symbol* symbol, at_tick* ticks, sz count);
+extern at_tick* at_get_tick(at_symbol* symbol, u32 index);
+extern at_tick* at_get_last_tick(at_symbol* symbol);
+extern at_candle* at_get_candles(at_symbol* symbol, u32 period);
+extern void at_free_symbol(at_symbol* symbol);
 
-extern void at_init_account(at_account *account, f64 balance);
-extern void at_free_account(at_account *account);
+extern void at_init_account(at_account* account, f64 balance);
+extern void at_free_account(at_account* account);
 
-extern void at_init_trade(at_trade *trade, at_id account_id, c8 *symbol, u32 volume, f64 open_price, u32 open_time);
-extern void at_free_trade(at_trade *trade);
+extern void at_init_trade(at_trade* trade, at_id account_id, c8* symbol, u32 volume, f64 open_price, u32 open_time);
+extern void at_free_trade(at_trade* trade);
 
-extern void at_init_order(at_order *order, at_id account_id, c8 *symbol, u32 volume, f64 price, u32 time);
-extern void at_add_order(at_account *account, at_order *order);
-extern void at_update_order(at_account *account, at_order *order, f64 price);
-extern void at_close_order(at_account *account, at_order *order, f64 price);
-extern void at_cancel_order(at_account *account, at_order *order);
-extern void at_free_order(at_order *order);
+extern void at_init_order(at_order* order, at_id account_id, c8* symbol, u32 volume, f64 price, u32 time);
+extern void at_add_order(at_account* account, at_order* order);
+extern void at_update_order(at_account* account, at_order* order, f64 price);
+extern void at_close_order(at_account* account, at_order* order, f64 price);
+extern void at_cancel_order(at_account* account, at_order* order);
+extern void at_free_order(at_order* order);
 
-extern void at_init_strategy(at_strategy *strategy, c8 *name, on_start_callback on_start, on_tick_callback on_tick, on_candle_callback on_candle);
-extern void at_free_strategy(at_strategy *strategy);
+extern void at_init_strategy(at_strategy* strategy, c8* name, on_start_callback on_start, on_tick_callback on_tick, on_candle_callback on_candle);
+extern void at_free_strategy(at_strategy* strategy);
 
-extern void at_init_instance(at_instance *instance, at_strategy *strategy, at_symbol *symbol, at_account *account);
-extern void at_free_instance(at_instance *instance);
-extern void at_add_trade(at_instance *instance, at_trade *trade);
-extern void at_tick_instance(at_instance *instance, at_tick *tick);
+extern void at_init_instance(at_instance* instance, at_strategy* strategy, at_symbol* symbol, at_account* account);
+extern void at_free_instance(at_instance* instance);
+extern void at_add_trade(at_instance* instance, at_trade* trade);
+extern void at_tick_instance(at_instance* instance, at_tick* tick);

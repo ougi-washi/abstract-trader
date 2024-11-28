@@ -7,34 +7,34 @@ at_id at_new_id(){
     return id++;
 }
 
-void at_init_symbol(at_symbol *symbol, c8 *name, c8 *exchange, c8 *currency, sz tick_count){
+void at_init_symbol(at_symbol* symbol, c8* name, c8* exchange, c8* currency, sz tick_count){
     assert(symbol && name && exchange && currency);
     symbol->name = name;
     symbol->exchange = exchange;
     symbol->currency = currency;
     symbol->tick_count = tick_count;
     if (tick_count > 0){
-        symbol->ticks = (at_tick *)malloc(sizeof(at_tick) * tick_count);
+        symbol->ticks = (at_tick* )malloc(sizeof(at_tick)*  tick_count);
     }
 }
 
-void at_add_tick(at_symbol *symbol, at_tick *tick){
-    assert(symbol && tick);
+void at_add_tick(at_symbol* symbol, at_tick* tick){
+    assert(symbol);
     symbol->tick_count++;
-    symbol->ticks = (at_tick *)realloc(symbol->ticks, sizeof(at_tick) * symbol->tick_count);
-    symbol->ticks[symbol->tick_count - 1] = *tick;
+    symbol->ticks = (at_tick* )realloc(symbol->ticks, sizeof(at_tick)*  symbol->tick_count);
+    symbol->ticks[symbol->tick_count - 1] =* tick;
 }
 
-void at_add_ticks(at_symbol *symbol, at_tick *ticks, sz count){
+void at_add_ticks(at_symbol* symbol, at_tick* ticks, sz count){
     assert(symbol && ticks && count > 0);
     symbol->tick_count += count;
-    symbol->ticks = (at_tick *)realloc(symbol->ticks, sizeof(at_tick) * symbol->tick_count);
+    symbol->ticks = (at_tick* )realloc(symbol->ticks, sizeof(at_tick)*  symbol->tick_count);
     for (u32 i = 0; i < count; i++){
         symbol->ticks[symbol->tick_count - count + i] = ticks[i];
     }
 }
 
-at_tick* at_get_tick(at_symbol *symbol, u32 index){
+at_tick* at_get_tick(at_symbol* symbol, u32 index){
     assert(symbol);
     if (index < symbol->tick_count){
         return &symbol->ticks[symbol->tick_count - index - 1];
@@ -42,17 +42,17 @@ at_tick* at_get_tick(at_symbol *symbol, u32 index){
     return NULL;
 }
 
-at_tick* at_get_last_tick(at_symbol *symbol){
+at_tick* at_get_last_tick(at_symbol* symbol){
     return at_get_tick(symbol, 0);
 }
 
-at_candle* at_get_candles(at_symbol *symbol, u32 period){
+at_candle* at_get_candles(at_symbol* symbol, u32 period){
     assert(symbol && period > 0);
     if (symbol->tick_count % period != 0){
         return NULL;
     }
 
-    at_candle* candles = (at_candle *)malloc(sizeof(at_candle) * (symbol->tick_count / period));
+    at_candle* candles = (at_candle* )malloc(sizeof(at_candle) * (symbol->tick_count / period));
     for (u32 i = 0; i < symbol->tick_count; i++){
         if (i % period == 0){
             at_candle candle = {0};
@@ -71,12 +71,12 @@ at_candle* at_get_candles(at_symbol *symbol, u32 period){
     return candles;
 }
 
-void at_free_symbol(at_symbol *symbol){
+void at_free_symbol(at_symbol* symbol){
     assert(symbol);
     free(symbol->ticks);
 }
 
-void at_init_account(at_account *account, f64 balance){
+void at_init_account(at_account* account, f64 balance){
     assert(account);
     account->id = at_new_id();
     account->balance = balance;
@@ -86,11 +86,11 @@ void at_init_account(at_account *account, f64 balance){
     account->margin_level = 0;
 }
 
-void at_free_account(at_account *account){
+void at_free_account(at_account* account){
     // Nothing to free
 }
 
-void at_init_trade(at_trade *trade, at_id account_id, c8 *symbol, u32 volume, f64 open_price, u32 open_time){
+void at_init_trade(at_trade* trade, at_id account_id, c8* symbol, u32 volume, f64 open_price, u32 open_time){
     assert(trade && symbol);
     trade->id = at_new_id();
     trade->account_id = account_id;
@@ -105,11 +105,11 @@ void at_init_trade(at_trade *trade, at_id account_id, c8 *symbol, u32 volume, f6
     trade->close_time = 0;
 }
 
-void at_free_trade(at_trade *trade){
+void at_free_trade(at_trade* trade){
     // Nothing to free
 }
 
-void at_init_order(at_order *order, at_id account_id, c8 *symbol, u32 volume, f64 price, u32 time){
+void at_init_order(at_order* order, at_id account_id, c8* symbol, u32 volume, f64 price, u32 time){
     assert(order && symbol);
     order->id = at_new_id();
     order->account_id = account_id;
@@ -119,41 +119,41 @@ void at_init_order(at_order *order, at_id account_id, c8 *symbol, u32 volume, f6
     order->time = time;
 }
 
-void at_add_order(at_account *account, at_order *order){
+void at_add_order(at_account* account, at_order* order){
     assert(account && order);
-    account->margin += order->volume * order->price;
+    account->margin += order->volume*  order->price;
     account->free_margin = account->balance - account->margin;
     account->margin_level = account->equity / account->margin;
 }
 
-void at_update_order(at_account *account, at_order *order, f64 price){
-    account->margin -= order->volume * order->price;
-    account->margin += order->volume * price;
+void at_update_order(at_account* account, at_order* order, f64 price){
+    account->margin -= order->volume*  order->price;
+    account->margin += order->volume*  price;
     account->free_margin = account->balance - account->margin;
     account->margin_level = account->equity / account->margin;
 }
 
-void at_close_order(at_account *account, at_order *order, f64 price){
+void at_close_order(at_account* account, at_order* order, f64 price){
     assert(account && order);
-    account->margin -= order->volume * order->price;
-    account->margin += order->volume * price;
+    account->margin -= order->volume*  order->price;
+    account->margin += order->volume*  price;
     account->free_margin = account->balance - account->margin;
     account->margin_level = account->equity / account->margin;
-    account->equity += order->volume * (price - order->price);
+    account->equity += order->volume*  (price - order->price);
 }
 
-void at_cancel_order(at_account *account, at_order *order){
+void at_cancel_order(at_account* account, at_order* order){
     assert(account && order);
-    account->margin -= order->volume * order->price;
+    account->margin -= order->volume*  order->price;
     account->free_margin = account->balance - account->margin;
     account->margin_level = account->equity / account->margin;
 }
 
-void at_free_order(at_order *order){
+void at_free_order(at_order* order){
     // Nothing to free
 }
 
-void at_init_strategy(at_strategy *strategy, c8 *name, on_start_callback on_start, on_tick_callback on_tick, on_candle_callback on_candle){
+void at_init_strategy(at_strategy* strategy, c8* name, on_start_callback on_start, on_tick_callback on_tick, on_candle_callback on_candle){
     assert(strategy && name && on_start && on_tick && on_candle);
     strategy->id = at_new_id();
     strategy->name = name;
@@ -162,11 +162,11 @@ void at_init_strategy(at_strategy *strategy, c8 *name, on_start_callback on_star
     strategy->on_candle = on_candle;
 }
 
-void at_free_strategy(at_strategy *strategy){
+void at_free_strategy(at_strategy* strategy){
     // Nothing to free
 }
 
-void at_init_instance(at_instance *instance, at_strategy *strategy, at_symbol *symbol, at_account *account){
+void at_init_instance(at_instance* instance, at_strategy* strategy, at_symbol* symbol, at_account* account){
     assert(instance && strategy && symbol && account);
     instance->id = at_new_id();
     instance->strategy = strategy;
@@ -178,26 +178,27 @@ void at_init_instance(at_instance *instance, at_strategy *strategy, at_symbol *s
     instance->order_count = 0;
 }
 
-void at_free_instance(at_instance *instance){
+void at_free_instance(at_instance* instance){
     assert(instance);
     free(instance->trades);
     free(instance->orders);
 }
 
-void at_add_trade(at_instance *instance, at_trade *trade){
+void at_add_trade(at_instance* instance, at_trade* trade){
     assert(instance && trade);
     instance->trade_count++;
-    instance->trades = (at_trade *)realloc(instance->trades, sizeof(at_trade) * instance->trade_count);
-    instance->trades[instance->trade_count - 1] = *trade;
+    instance->trades = (at_trade* )realloc(instance->trades, sizeof(at_trade)*  instance->trade_count);
+    instance->trades[instance->trade_count - 1] =* trade;
 }
 
-void at_tick_instance(at_instance *instance, at_tick *tick){
+void at_tick_instance(at_instance* instance, at_tick* tick){
     assert(instance && tick);
+    at_add_tick(instance->symbol, tick);
     instance->strategy->on_tick(instance, tick);
     instance->strategy->on_candle(instance, at_get_candles(instance->symbol, 5));
 
     for (u32 i = 0; i < instance->order_count; i++){
-        at_order *order = &instance->orders[i];
+        at_order* order = &instance->orders[i];
         if (order->symbol == instance->symbol->name){
             if (order->price >= tick->price){
                 at_close_order(instance->account, order, tick->price);
