@@ -5,7 +5,7 @@
 #include "gl.h"
 
 typedef struct at_render_object {
-    GLuint vao, vbo, instance_vbo, shader_program;
+    GLuint vao, vbo, ebo, instance_vbo, shader_program; 
     sz data_size;
 } at_render_object;
 

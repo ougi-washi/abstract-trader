@@ -109,7 +109,6 @@ i8 at_get_candle_direction(at_candle* candle){
     return 0;
 }
 
-
 void at_free_symbol(at_symbol* symbol){
     assert(symbol);
     free(symbol->ticks);

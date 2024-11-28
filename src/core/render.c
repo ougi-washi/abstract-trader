@@ -3,16 +3,25 @@
 #include "log.h"
 #include <assert.h>
 
+#define AT_WINDOW_TITLE "Abstract Trader"
+#define AT_WINDOW_WIDTH 800
+#define AT_WINDOW_HEIGHT 600
+
 const char* vertex_shader_src = 
 "#version 330 core\n"
-"layout(location = 0) in vec2 aPos;\n"  // 2D position (quad)
-"layout(location = 1) in vec2 instancePos;\n"  // Instance position (Open, High)
-"layout(location = 2) in vec3 instanceColor;\n"  // Instance color
+"layout(location = 0) in vec2 aPos;\n"
+"layout(location = 1) in vec3 instanceColor;\n"
+"layout(location = 2) in vec2 texCoords;\n"
 "out vec3 fragColor;\n"
+"out vec2 fragTexCoords;\n"
 "void main() {\n"
-"    gl_Position = vec4(aPos + instancePos, 0.0, 1.0);\n"
+"    // Calculate final position in NDC (normalized device coordinates)\n"
+"    gl_Position = vec4(aPos, 0.0, 1.0);\n"
+"    // Pass instance attributes to the fragment shader\n"
 "    fragColor = instanceColor;\n"
+"    fragTexCoords = texCoords;\n"
 "}\n";
+
 
 const char* fragment_shader_src = 
 "#version 330 core\n"
@@ -21,10 +30,6 @@ const char* fragment_shader_src =
 "void main() {\n"
 "    FragColor = vec4(fragColor, 1.0f);\n"
 "}\n";
-
-#define AT_WINDOW_TITLE "Abstract Trader"
-#define AT_WINDOW_WIDTH 800
-#define AT_WINDOW_HEIGHT 600
 
 void at_gl_error_check(){
     GLenum error = glGetError();
@@ -74,9 +79,9 @@ void at_draw_render(at_render *render){
 
     for (sz i = 0; i < render->object_count; ++i) {
         at_render_object* obj = &render->object[i];
-        glUseProgram(obj->shader_program);
         glBindVertexArray(obj->vao);
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, obj->data_size);
+        glUseProgram(obj->shader_program);
+        glDrawElements(GL_TRIANGLES, obj->data_size * 6, GL_UNSIGNED_INT, 0);
     }
 
     glfwSwapBuffers(render->window);
@@ -137,57 +142,96 @@ f32 normalize_value(f32 value, f32 min_val, f32 max_val) {
     }
     return normalized;
 }
+
 void at_candles_to_render_object(at_candle *candles, sz candle_count, at_render_object *object) {
-    
-    GLfloat* instance_data = malloc(candle_count * 6 * sizeof(GLfloat));  // 2 for position, 3 for color
-    f32 min_value = 0.0f;
+    GLfloat* instance_data = malloc(candle_count * 4 * 7 * sizeof(GLfloat));
+    GLuint* indices = malloc(candle_count * 6 * sizeof(GLuint));
+
+    const f32 distance_between_candles = 0.05f;
+    const f32 candle_width = 0.02f;
+    f32 current_x = -1.0f;
+
+    f32 min_value = 0.f;
     f32 max_value = 200.0f;
 
-    // 2 triangles, 4 vertices
-    GLfloat quad_vertices[] = {
-        -0.5f, -0.5f,
-         0.5f, -0.5f,
-         0.5f,  0.5f,
-        -0.5f,  0.5f
-    };
-
     for (sz i = 0; i < candle_count; ++i) {
-        instance_data[i * 6 + 0] = normalize_value(candles[i].open, min_value, max_value);   // Position X (Open)
-        instance_data[i * 6 + 1] = normalize_value(candles[i].high, min_value, max_value);   // Position Y (High)
+        f32 x_left = current_x;
+        f32 x_right = current_x + candle_width;
+        f32 y_low = normalize_value(candles[i].low, min_value, max_value);
+        f32 y_high = normalize_value(candles[i].high, min_value, max_value);
 
-        i8 candle_dir = at_get_candle_direction(&candles[i]);
-        instance_data[i * 6 + 2] = candle_dir == 1 ? 0.f : 1.f;   // Red
-        instance_data[i * 6 + 3] = candle_dir == 1 ? 1.0f : 0.0f;   // Green
-        instance_data[i * 6 + 4] = 0.0f;   // Blue
+        const i8 candle_direction = at_get_candle_direction(&candles[i]);
+
+        instance_data[i * 28 + 0] = x_left;  // Bottom left X
+        instance_data[i * 28 + 1] = y_low;   // Bottom left Y
+        instance_data[i * 28 + 2] = candle_direction == 1 ? 0.0f : 1.0f; // Color: Red
+        instance_data[i * 28 + 3] = candle_direction == 1 ? 1.0f : 0.0f; // Color: Green
+        instance_data[i * 28 + 4] = 0.0f;    // Color: Blue
+        instance_data[i * 28 + 5] = 0.0f;    // u (texture coordinate, if needed)
+        instance_data[i * 28 + 6] = 0.0f;    // v (texture coordinate, if needed)
+
+        instance_data[i * 28 + 7] = x_right; // Bottom right X
+        instance_data[i * 28 + 8] = y_low;   // Bottom right Y
+        instance_data[i * 28 + 9] = candle_direction == 1 ? 0.0f : 1.0f;
+        instance_data[i * 28 + 10] = candle_direction == 1 ? 1.0f : 0.0f;
+        instance_data[i * 28 + 11] = 0.0f;
+        instance_data[i * 28 + 12] = 1.0f;
+        instance_data[i * 28 + 13] = 0.0f;
+
+        instance_data[i * 28 + 14] = x_left;  // Top left X
+        instance_data[i * 28 + 15] = y_high;  // Top left Y
+        instance_data[i * 28 + 16] = candle_direction == 1 ? 0.0f : 1.0f;
+        instance_data[i * 28 + 17] = candle_direction == 1 ? 1.0f : 0.0f;
+        instance_data[i * 28 + 18] = 0.0f;
+        instance_data[i * 28 + 19] = 0.0f;
+        instance_data[i * 28 + 20] = 1.0f;
+
+        instance_data[i * 28 + 21] = x_right; // Top right X
+        instance_data[i * 28 + 22] = y_high;  // Top right Y
+        instance_data[i * 28 + 23] = candle_direction == 1 ? 0.0f : 1.0f;
+        instance_data[i * 28 + 24] = candle_direction == 1 ? 1.0f : 0.0f;
+        instance_data[i * 28 + 25] = 0.0f;
+        instance_data[i * 28 + 26] = 1.0f;
+        instance_data[i * 28 + 27] = 1.0f;
+
+        indices[i * 6 + 0] = i * 4 + 0; // Bottom-left
+        indices[i * 6 + 1] = i * 4 + 1; // Bottom-right
+        indices[i * 6 + 2] = i * 4 + 2; // Top-left
+        indices[i * 6 + 3] = i * 4 + 2; // Top-left
+        indices[i * 6 + 4] = i * 4 + 1; // Bottom-right
+        indices[i * 6 + 5] = i * 4 + 3; // Top-right
+
+        current_x += candle_width + distance_between_candles;
     }
 
+    // Create VAO
     glGenVertexArrays(1, &object->vao);
     glBindVertexArray(object->vao);
 
-    GLuint quad_vbo;
-    glGenBuffers(1, &quad_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, quad_vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (void*)0);  // Position data for the quad
-    glEnableVertexAttribArray(0);
-    
+    // Create VBO
     glGenBuffers(1, &object->instance_vbo);
     glBindBuffer(GL_ARRAY_BUFFER, object->instance_vbo);
-    glBufferData(GL_ARRAY_BUFFER, candle_count * 6 * sizeof(GLfloat), instance_data, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, candle_count * 4 * 7 * sizeof(GLfloat), instance_data, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void*)0); // Instance Position (X, Y)
-    glEnableVertexAttribArray(1);
-    glVertexAttribDivisor(1, 1);  // Use per-instance data
+    // Create EBO
+    glGenBuffers(1, &object->ebo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, object->ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, candle_count * 6 * sizeof(GLuint), indices, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(2);
-    glVertexAttribDivisor(2, 1);  // Use per-instance data
+    // Vertex Attributes
+    glEnableVertexAttribArray(0); // Position
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 7 * sizeof(GLfloat), (void*)0);
+    glEnableVertexAttribArray(1); // Color
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(2); // Texture Coordinates
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 7 * sizeof(GLfloat), (void*)(5 * sizeof(GLfloat)));
+
 
     object->shader_program = at_compile_shader(vertex_shader_src, fragment_shader_src);
     object->data_size = candle_count;
 
     free(instance_data);
+    free(indices);
 }
 
 
