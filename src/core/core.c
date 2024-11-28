@@ -102,6 +102,14 @@ at_candle* at_get_candles(at_symbol* symbol, u32 period, u32* out_candle_count) 
     return candles;
 }
 
+i8 at_get_candle_direction(at_candle* candle){
+    assert(candle);
+    if (candle->close > candle->open){ return 1; } 
+    else if (candle->close < candle->open){ return -1; }
+    return 0;
+}
+
+
 void at_free_symbol(at_symbol* symbol){
     assert(symbol);
     free(symbol->ticks);
