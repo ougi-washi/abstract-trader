@@ -6,6 +6,7 @@
 #include <time.h>
 #include <string.h>
 
+
 void log_message(const char *level, const char *file, const i32 line, const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);

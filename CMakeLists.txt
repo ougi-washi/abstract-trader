@@ -57,6 +57,10 @@ target_link_libraries(${PROJECT_NAME} PUBLIC main_module)
 set_target_properties(${PROJECT_NAME} PROPERTIES
                       RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/${BIN_DIR})
 
+add_subdirectory(shaders)
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_BINARY_DIR}/shaders)
+add_dependencies(${PROJECT_NAME} shaders)
+
 ## Definitions
 if(MSVC)
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)
