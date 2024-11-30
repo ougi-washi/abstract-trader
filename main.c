@@ -1,6 +1,5 @@
 // abstract-trader https://github.com/ougi-washi/abstract-trader
   
-#include "core/types.h"
 #include "core/log.h"
 #include "core/render.h"
 
@@ -78,5 +77,10 @@ i32 main(i32 argc, c8 **argv) {
     }
     free(candles);
     at_free_symbol(&symbol);
+    at_free_account(&account);
+    at_free_strategy(&strategy);
+    at_free_instance(&instance);
+    at_free_render(&render);
+    
     return 0;
 }

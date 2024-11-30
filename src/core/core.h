@@ -1,7 +1,7 @@
 // abstract-trader https://github.com/ougi-washi/abstract-trader
 #pragma once
 
-#include "core/types.h"
+#include "types.h"
 #include <stdlib.h>
 
 typedef u32 at_id;
