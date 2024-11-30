@@ -44,7 +44,6 @@ void at_add_ticks(at_symbol* symbol, at_tick* ticks, sz count) {
     }
 }
 
-
 at_tick* at_get_tick(at_symbol* symbol, u32 index){
     assert(symbol);
     if (index < symbol->tick_count){
@@ -219,7 +218,6 @@ void at_cancel_order(at_account* account, at_order* order) {
         account->margin_level = 0;
     }
 }
-
 
 void at_free_order(at_order* order){
     // Nothing to free
