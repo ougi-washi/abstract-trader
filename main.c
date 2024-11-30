@@ -30,11 +30,22 @@ void on_start_strategy(at_instance *instance) {
     log_info("Starting strategy %s", instance->strategy->name);
 }
 
+static b8 trigger_once = 0;
 void on_tick_strategy(at_instance *instance, at_tick *tick) {
-    if (tick->price > 150.0 && tick->price < 160.0) {
-        at_order order = {0};
-        at_init_order(&order, instance->account->id, instance->symbol->name, 100, tick->price, 0);
-        at_add_order(instance->account, &order);
+    if (tick->price > 150.0 && tick->price < 160.0 && !trigger_once) {
+        at_order main_order = {0};
+        at_init_order(&main_order, instance->symbol->name, 100, tick->price, AT_ORDER_DIR_LONG, AT_ORDER_TYPE_MARKET);
+        at_place_order(instance, &main_order);
+
+        at_order stop_loss_order = {0};
+        at_init_order(&stop_loss_order, instance->symbol->name, 100, tick->price - 5.0, AT_ORDER_DIR_SHORT, AT_ORDER_TYPE_LIMIT);
+        at_place_order(instance, &stop_loss_order);
+
+        at_order take_profit_order = {0};
+        at_init_order(&take_profit_order, instance->symbol->name, 100, tick->price + 5.0, AT_ORDER_DIR_SHORT, AT_ORDER_TYPE_LIMIT);
+        at_place_order(instance, &take_profit_order);
+
+        trigger_once = 1;
     }
 }
 
@@ -46,7 +57,7 @@ i32 main(i32 argc, c8 **argv) {
     at_init_symbol(&symbol, "AAPL", "NASDAQ", "USD", 0);
     at_init_account(&account, 1000.0);
     at_init_strategy(&strategy, "Test Strategy", on_start_strategy, on_tick_strategy, (u32[]){3, 5, 15}, 3); // use 3, 5, 15 candles (from ticks) for strategy
-    at_init_instance(&instance, &strategy, &symbol, &account);
+    at_init_instance(&instance, &strategy, &symbol, &account, 0.0, 0.0, 1.0);
 
     at_start_instance(&instance);
     for (sz i = 0; i < ticks_count; i++) {

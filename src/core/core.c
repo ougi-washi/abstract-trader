@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <string.h>
 #include <stdatomic.h>
+#include <time.h>
 
 at_id at_new_id(){
     static _Atomic at_id id = 0;
@@ -165,97 +166,22 @@ void at_free_account(at_account* account){
     // Nothing to free
 }
 
-void at_init_trade(at_trade* trade, at_id account_id, c8* symbol, u32 volume, f64 open_price, u32 open_time){
-    assert(trade && symbol);
-    trade->id = at_new_id();
-    trade->account_id = account_id;
-    trade->symbol = symbol;
-    trade->volume = volume;
-    trade->open_price = open_price;
-    trade->close_price = 0;
-    trade->swap = 0;
-    trade->profit = 0;
-    trade->commission = 0;
-    trade->open_time = open_time;
-    trade->close_time = 0;
+void at_init_position(at_position* position, at_id account_id, c8* symbol, u32 volume, f64 open_price, u32 open_time){
+    assert(position && symbol);
+    position->id = at_new_id();
+    position->account_id = account_id;
+    position->symbol = symbol;
+    position->volume = volume;
+    position->open_price = open_price;
+    position->close_price = 0;
+    position->swap = 0;
+    position->profit = 0;
+    position->commission = 0;
+    position->open_time = open_time;
+    position->close_time = 0;
 }
 
-void at_free_trade(at_trade* trade){
-    // Nothing to free
-}
-
-void at_init_order(at_order* order, at_id account_id, c8* symbol, u32 volume, f64 price, u32 time){
-    assert(order && symbol);
-    order->id = at_new_id();
-    order->account_id = account_id;
-    order->symbol = symbol;
-    order->volume = volume;
-    order->price = price;
-    order->time = time;
-}
-
-void at_add_order(at_account* account, at_order* order) {
-    assert(account && order);
-    account->margin += order->volume * order->price;
-    account->free_margin = account->balance - account->margin;
-    if (account->margin != 0) {
-        account->margin_level = account->equity / account->margin;
-    } else {
-        account->margin_level = 0;
-    }
-    log_info("Order added: %s %u %f", order->symbol, order->volume, order->price);
-}
-
-void at_update_order(at_account* account, at_order* order, f64 price) {
-    assert(account && order);
-    account->margin -= order->volume * order->price;
-    account->margin += order->volume * price;
-    if (account->margin < 0) {
-        log_error("Margin cannot be negative");
-        account->margin = 0;
-    }
-    account->free_margin = account->balance - account->margin;
-    if (account->margin != 0) {
-        account->margin_level = account->equity / account->margin;
-    } else {
-        account->margin_level = 0;
-    }
-}
-
-void at_close_order(at_account* account, at_order* order, f64 price) {
-    assert(account && order);
-    account->margin -= order->volume * order->price;
-    account->margin += order->volume * price;
-    if (account->margin < 0) {
-        log_error("Margin cannot be negative");
-        account->margin = 0;
-    }
-    account->free_margin = account->balance - account->margin;
-    if (account->margin != 0) {
-        account->margin_level = account->equity / account->margin;
-    } else {
-        account->margin_level = 0;
-    }
-    account->equity += order->volume * (price - order->price);
-    log_info("Order closed: %s %u %f", order->symbol, order->volume, price);
-}
-
-void at_cancel_order(at_account* account, at_order* order) {
-    assert(account && order);
-    account->margin -= order->volume * order->price;
-    if (account->margin < 0) {
-        log_error("Margin cannot be negative");
-        account->margin = 0;
-    }
-    account->free_margin = account->balance - account->margin;
-    if (account->margin != 0) {
-        account->margin_level = account->equity / account->margin;
-    } else {
-        account->margin_level = 0;
-    }
-}
-
-void at_free_order(at_order* order){
+void at_free_position(at_position* position){
     // Nothing to free
 }
 
@@ -301,7 +227,7 @@ void at_free_strategy(at_strategy* strategy){
     free(strategy->cached_candles);
 }
 
-void at_init_instance(at_instance* instance, at_strategy* strategy, at_symbol* symbol, at_account* account){
+void at_init_instance(at_instance *instance, at_strategy *strategy, at_symbol *symbol, at_account *account, f32 commission, f32 swap, f32 leverage){
     assert(instance && strategy && symbol && account);
     instance->id = at_new_id();
     instance->strategy = strategy;
@@ -309,21 +235,87 @@ void at_init_instance(at_instance* instance, at_strategy* strategy, at_symbol* s
     instance->account = account;
     instance->trades = NULL;
     instance->trade_count = 0;
-    instance->orders = NULL;
-    instance->order_count = 0;
+    instance->commission = commission;
+    instance->swap = swap;
+    instance->leverage = leverage;
 }
 
-void at_free_instance(at_instance* instance){
+void at_free_instance(at_instance *instance)
+{
     assert(instance);
     free(instance->trades);
-    free(instance->orders);
 }
 
-void at_add_trade(at_instance* instance, at_trade* trade){
-    assert(instance && trade);
+void at_add_position(at_instance* instance, at_position* position){
+    assert(instance && position);
     instance->trade_count++;
-    instance->trades = (at_trade* )realloc(instance->trades, sizeof(at_trade)*  instance->trade_count);
-    instance->trades[instance->trade_count - 1] =* trade;
+    instance->trades = (at_position* )realloc(instance->trades, sizeof(at_position)*  instance->trade_count);
+    instance->trades[instance->trade_count - 1] =* position;
+    instance->account->balance -= position->volume * position->open_price;
+    instance->account->margin += position->volume * position->open_price;
+    instance->account->free_margin = instance->account->balance - instance->account->margin;
+    instance->account->margin_level = instance->account->equity / instance->account->margin;
+}
+
+void at_init_order(at_order *order, c8 *symbol, u32 volume, f64 price, i8 direction, u8 type)
+{
+    assert(order && symbol);
+    order->id = at_new_id();
+    order->symbol = symbol;
+    order->volume = volume;
+    order->price = price;
+    time_t now = time(NULL);
+    order->time = now;
+    order->direction = direction;
+    order->type = type;
+}
+
+void at_free_order(at_order *order){
+    // Nothing to free
+}
+
+void at_place_order(at_instance *instance, at_order *order){
+    assert(instance && order);
+    instance->orders_count++;
+    instance->orders = (at_order*)realloc(instance->orders, sizeof(at_order) * instance->orders_count);
+    instance->orders[instance->orders_count - 1] =* order;
+    log_info("Placed order %d at price %f with volume %d", order->id, order->price, order->volume);
+}
+
+void at_remove_order(at_instance *instance, at_order *order){
+    assert(instance && order);
+    sz index = -1;
+    for (sz i = 0; i < instance->orders_count; i++){
+        if (instance->orders[i].id == order->id){
+            index = i;
+            break;
+        }
+    }
+    if (index != -1){
+        for (sz i = index; i < instance->orders_count - 1; i++){
+            instance->orders[i] = instance->orders[i + 1];
+        }
+        instance->orders_count--;
+        instance->orders = (at_order*)realloc(instance->orders, sizeof(at_order) * instance->orders_count);
+    }
+}
+
+void at_close_order(at_instance *instance, at_order *order, f64 close_price){
+    assert(instance && order);
+    for (sz i = 0; i < instance->orders_count; i++){
+        if (instance->orders[i].id == order->id){
+            instance->account->balance += order->volume * close_price;
+            instance->account->margin -= order->volume * order->price;
+            instance->account->free_margin = instance->account->balance - instance->account->margin;
+            instance->account->margin_level = instance->account->equity / instance->account->margin;
+            at_order* last_order = &instance->orders[instance->orders_count - 1];
+            instance->orders_count--;
+            instance->orders = (at_order*)realloc(instance->orders, sizeof(at_order) * instance->orders_count);
+            log_info("Closed order %d at price %f with volume %d, profit: %f", order->id, close_price, order->volume, order->volume * (close_price - order->price));
+            return;
+        }
+    }
+    log_error("Failed to close order");
 }
 
 void at_start_instance(at_instance *instance){
@@ -340,11 +332,20 @@ void at_tick_instance(at_instance* instance, at_tick* tick){
     if (instance->strategy->on_tick){
         instance->strategy->on_tick(instance, tick);
     }
-    for (u32 i = 0; i < instance->order_count; i++){
+    for (u32 i = 0; i < instance->orders_count; i++){
         at_order* order = &instance->orders[i];
-        if (strcmp(order->symbol, instance->symbol->name) == 0){
-            if (order->price >= tick->price){
-                at_close_order(instance->account, order, tick->price);
+        if (strcmp(order->symbol, instance->symbol->name) == 0)
+        {
+            if (order->type == AT_ORDER_TYPE_MARKET){
+                at_close_order(instance, order, tick->price);
+            }
+            else if (order->type == AT_ORDER_TYPE_LIMIT){
+                if (order->direction == AT_ORDER_DIR_LONG && tick->price >= order->price){
+                    at_close_order(instance, order, tick->price);
+                }
+                else if (order->direction == AT_ORDER_DIR_SHORT && tick->price <= order->price){
+                    at_close_order(instance, order, tick->price);
+                }
             }
         }
     }

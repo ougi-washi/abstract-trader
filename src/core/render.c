@@ -218,7 +218,7 @@ void at_candles_to_render_object(at_candle *candles, sz candle_count, at_render_
     free(indices);
 }
 
-
+// TODO: Implement this function properly
 void at_ticks_to_render_object(at_tick *ticks, sz tick_count, at_render_object *object){
     GLfloat* instance_data = malloc(tick_count * 2 * sizeof(GLfloat)); // Position data
     for (sz i = 0; i < tick_count; ++i) {
@@ -251,7 +251,6 @@ GLuint at_compile_shader(const char *vertex_src, const char *fragment_src){
     glShaderSource(vertex_shader, 1, &vertex_src, NULL);
     glCompileShader(vertex_shader);
 
-    // Check for compile errors
     GLint success;
     glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &success);
     if (!success) {
@@ -268,7 +267,6 @@ GLuint at_compile_shader(const char *vertex_src, const char *fragment_src){
     glShaderSource(fragment_shader, 1, &fragment_src, NULL);
     glCompileShader(fragment_shader);
 
-    // Check for compile errors
     glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &success);
     if (!success) {
         GLint log_length;
@@ -285,7 +283,6 @@ GLuint at_compile_shader(const char *vertex_src, const char *fragment_src){
     glAttachShader(shader_program, fragment_shader);
     glLinkProgram(shader_program);
 
-    // Check for linking errors
     glGetProgramiv(shader_program, GL_LINK_STATUS, &success);
     if (!success) {
         GLint log_length;
