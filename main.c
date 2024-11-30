@@ -33,19 +33,18 @@ void on_start_strategy(at_instance *instance) {
 static b8 trigger_once = 0;
 void on_tick_strategy(at_instance *instance, at_tick *tick) {
     if (tick->price > 150.0 && tick->price < 160.0 && !trigger_once) {
-        at_order main_order = {0};
-        at_init_order(&main_order, instance->symbol->name, 100, tick->price, AT_ORDER_DIR_LONG, AT_ORDER_TYPE_MARKET);
-        at_place_order(instance, &main_order);
-
-        at_order stop_loss_order = {0};
-        at_init_order(&stop_loss_order, instance->symbol->name, 100, tick->price - 5.0, AT_ORDER_DIR_SHORT, AT_ORDER_TYPE_LIMIT);
-        at_place_order(instance, &stop_loss_order);
-
-        at_order take_profit_order = {0};
-        at_init_order(&take_profit_order, instance->symbol->name, 100, tick->price + 5.0, AT_ORDER_DIR_SHORT, AT_ORDER_TYPE_LIMIT);
-        at_place_order(instance, &take_profit_order);
-
+        at_position position1 = {0};
+        at_init_position(&position1, "AAPL", 100, AT_DIRECTION_LONG, tick->price, 0.0, 160.0, 150.0);
+        at_add_position(instance, &position1);
         trigger_once = 1;
+
+        at_position position2 = {0};
+        at_init_position(&position2, "AAPL", 100, AT_DIRECTION_SHORT, tick->price, 0.0, 160.0, 150.0);
+        at_add_position(instance, &position2);
+
+        at_position position3 = {0};
+        at_init_position(&position3, "AAPL", 100, AT_DIRECTION_LONG, tick->price, 0.0, 160.0, 150.0);
+        at_add_position(instance, &position3);
     }
 }
 

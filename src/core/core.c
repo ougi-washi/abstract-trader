@@ -166,23 +166,25 @@ void at_free_account(at_account* account){
     // Nothing to free
 }
 
-void at_init_position(at_position* position, at_id account_id, c8* symbol, u32 volume, f64 open_price, u32 open_time){
-    assert(position && symbol);
+void at_init_position(at_position* position, c8 *symbol, u32 volume, i8 direction, f64 open_price, f64 commission, f64 take_profit_price, f64 stop_loss_price){
+    assert(position);
     position->id = at_new_id();
-    position->account_id = account_id;
     position->symbol = symbol;
     position->volume = volume;
+    position->direction = direction;
     position->open_price = open_price;
+    position->commission = commission;
+    position->take_profit_price = take_profit_price;
+    position->stop_loss_price = stop_loss_price;
     position->close_price = 0;
     position->swap = 0;
     position->profit = 0;
-    position->commission = 0;
-    position->open_time = open_time;
+    position->open_time = time(NULL);
     position->close_time = 0;
 }
 
-void at_free_position(at_position* position){
-    // Nothing to free
+void at_free_position(at_position *position){
+    // Nothing to free    
 }
 
 void at_init_strategy(at_strategy *strategy, c8 *name, on_start_callback on_start, on_tick_callback on_tick, u32 *candles_periods, sz candles_periods_count){
@@ -233,89 +235,67 @@ void at_init_instance(at_instance *instance, at_strategy *strategy, at_symbol *s
     instance->strategy = strategy;
     instance->symbol = symbol;
     instance->account = account;
-    instance->trades = NULL;
-    instance->trade_count = 0;
     instance->commission = commission;
     instance->swap = swap;
     instance->leverage = leverage;
+    instance->open_positions = NULL;
+    instance->open_positions_count = 0;
+    instance->closed_positions = NULL;
+    instance->closed_positions_count = 0;
 }
 
 void at_free_instance(at_instance *instance)
 {
     assert(instance);
-    free(instance->trades);
+    free(instance->open_positions);
+    free(instance->closed_positions);
 }
 
 void at_add_position(at_instance* instance, at_position* position){
     assert(instance && position);
-    instance->trade_count++;
-    instance->trades = (at_position* )realloc(instance->trades, sizeof(at_position)*  instance->trade_count);
-    instance->trades[instance->trade_count - 1] =* position;
+    instance->open_positions_count++;
+    instance->open_positions = (at_position*)realloc(instance->open_positions, sizeof(at_position) * instance->open_positions_count);
+    instance->open_positions[instance->open_positions_count - 1] =* position;
+    instance->account->equity -= position->volume * position->open_price;
     instance->account->balance -= position->volume * position->open_price;
     instance->account->margin += position->volume * position->open_price;
     instance->account->free_margin = instance->account->balance - instance->account->margin;
     instance->account->margin_level = instance->account->equity / instance->account->margin;
+    log_info("Opened: position %d, symbol %s, volume %d, direction %d, open price %f, take profit %f, stop loss %f", position->id, position->symbol, position->volume, position->direction, position->open_price, position->take_profit_price, position->stop_loss_price);
 }
 
-void at_init_order(at_order *order, c8 *symbol, u32 volume, f64 price, i8 direction, u8 type)
-{
-    assert(order && symbol);
-    order->id = at_new_id();
-    order->symbol = symbol;
-    order->volume = volume;
-    order->price = price;
-    time_t now = time(NULL);
-    order->time = now;
-    order->direction = direction;
-    order->type = type;
-}
-
-void at_free_order(at_order *order){
-    // Nothing to free
-}
-
-void at_place_order(at_instance *instance, at_order *order){
-    assert(instance && order);
-    instance->orders_count++;
-    instance->orders = (at_order*)realloc(instance->orders, sizeof(at_order) * instance->orders_count);
-    instance->orders[instance->orders_count - 1] =* order;
-    log_info("Placed order %d at price %f with volume %d", order->id, order->price, order->volume);
-}
-
-void at_remove_order(at_instance *instance, at_order *order){
-    assert(instance && order);
-    sz index = -1;
-    for (sz i = 0; i < instance->orders_count; i++){
-        if (instance->orders[i].id == order->id){
-            index = i;
-            break;
-        }
-    }
-    if (index != -1){
-        for (sz i = index; i < instance->orders_count - 1; i++){
-            instance->orders[i] = instance->orders[i + 1];
-        }
-        instance->orders_count--;
-        instance->orders = (at_order*)realloc(instance->orders, sizeof(at_order) * instance->orders_count);
-    }
-}
-
-void at_close_order(at_instance *instance, at_order *order, f64 close_price){
-    assert(instance && order);
-    for (sz i = 0; i < instance->orders_count; i++){
-        if (instance->orders[i].id == order->id){
-            instance->account->balance += order->volume * close_price;
-            instance->account->margin -= order->volume * order->price;
+void at_close_position(at_instance *instance, at_position *position, f64 close_price){
+    assert(instance && position);
+    for (sz i = 0; i < instance->open_positions_count; i++){
+        if (instance->open_positions[i].id == position->id){
+            instance->account->equity += position->volume * close_price;
+            instance->account->balance += position->volume * close_price;
+            instance->account->margin -= position->volume * position->open_price;
             instance->account->free_margin = instance->account->balance - instance->account->margin;
             instance->account->margin_level = instance->account->equity / instance->account->margin;
-            at_order* last_order = &instance->orders[instance->orders_count - 1];
-            instance->orders_count--;
-            instance->orders = (at_order*)realloc(instance->orders, sizeof(at_order) * instance->orders_count);
-            log_info("Closed order %d at price %f with volume %d, profit: %f", order->id, close_price, order->volume, order->volume * (close_price - order->price));
+            instance->open_positions[i].close_price = close_price;
+            instance->open_positions[i].swap = 0;
+            instance->open_positions[i].profit = position->volume * (close_price - position->open_price);
+            instance->open_positions[i].close_time = time(NULL);
+            log_info("Closed: position %d, symbol %s, volume %d, direction %d, open price %f, close price %f, profit %f", position->id, position->symbol, position->volume, position->direction, position->open_price, close_price, instance->open_positions[i].profit);
+            // add to closed positions
+            instance->closed_positions_count++;
+            instance->closed_positions = (at_position*)realloc(instance->closed_positions, sizeof(at_position) * instance->closed_positions_count);
+            instance->closed_positions[instance->closed_positions_count - 1] =* position;
+            // remove from open positions
+            instance->open_positions_count--;
+            if (instance->open_positions_count > 0){
+                instance->open_positions = (at_position*)realloc(instance->open_positions, sizeof(at_position) * instance->open_positions_count);
+                assert(instance->open_positions);
+            }
+            else {
+                free(instance->open_positions);
+                instance->open_positions = NULL;
+            }
             return;
         }
     }
-    log_error("Failed to close order");
+    log_error("Failed to close position");
 }
 
 void at_start_instance(at_instance *instance){
@@ -332,21 +312,19 @@ void at_tick_instance(at_instance* instance, at_tick* tick){
     if (instance->strategy->on_tick){
         instance->strategy->on_tick(instance, tick);
     }
-    for (u32 i = 0; i < instance->orders_count; i++){
-        at_order* order = &instance->orders[i];
-        if (strcmp(order->symbol, instance->symbol->name) == 0)
-        {
-            if (order->type == AT_ORDER_TYPE_MARKET){
-                at_close_order(instance, order, tick->price);
-            }
-            else if (order->type == AT_ORDER_TYPE_LIMIT){
-                if (order->direction == AT_ORDER_DIR_LONG && tick->price >= order->price){
-                    at_close_order(instance, order, tick->price);
-                }
-                else if (order->direction == AT_ORDER_DIR_SHORT && tick->price <= order->price){
-                    at_close_order(instance, order, tick->price);
-                }
-            }
+    for (sz i = 0; i < instance->open_positions_count; i++){
+        at_position* position = &instance->open_positions[i];
+        if (position->take_profit_price > 0 && position->direction == AT_DIRECTION_LONG && tick->price >= position->take_profit_price){
+            at_close_position(instance, position, position->take_profit_price);
+        }
+        else if (position->stop_loss_price > 0 && position->direction == AT_DIRECTION_LONG && tick->price <= position->stop_loss_price){
+            at_close_position(instance, position, position->stop_loss_price);
+        }
+        else if (position->take_profit_price > 0 && position->direction == AT_DIRECTION_SHORT && tick->price <= position->take_profit_price){
+            at_close_position(instance, position, position->take_profit_price);
+        }
+        else if (position->stop_loss_price > 0 && position->direction == AT_DIRECTION_SHORT && tick->price >= position->stop_loss_price){
+            at_close_position(instance, position, position->stop_loss_price);
         }
     }
 }

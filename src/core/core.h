@@ -34,20 +34,6 @@ typedef struct at_symbol {
     at_tick* ticks;
 } at_symbol;
 
-#define AT_ORDER_DIR_LONG 1
-#define AT_ORDER_DIR_SHORT -1
-#define AT_ORDER_TYPE_MARKET 0
-#define AT_ORDER_TYPE_LIMIT 1
-typedef struct at_order {
-    at_id id;
-    c8* symbol;
-    u32 volume;
-    f64 price;
-    u32 time;
-    i8 direction;
-    u8 type : 1;
-} at_order;
-
 typedef struct at_account {
     at_id id;
     f64 balance;
@@ -57,16 +43,24 @@ typedef struct at_account {
     f64 margin_level;
 } at_account;
 
+#define AT_DIRECTION_LONG 1
+#define AT_DIRECTION_SHORT -1
+#define AT_DIRECTION_STRING(d) (d == AT_DIRECTION_LONG ? "LONG" : "SHORT")
 typedef struct at_position {
-    at_id id;
-    at_id account_id;
+    // configuration
     c8* symbol;
     u32 volume;
+    i8 direction;
+    f64 take_profit_price;
+    f64 stop_loss_price;
+    f64 commission;
+    
+    // runtime data
+    at_id id;
     f64 open_price;
     f64 close_price;
     f64 swap;
     f64 profit;
-    f64 commission;
     u32 open_time;
     u32 close_time;
 } at_position;
@@ -82,10 +76,10 @@ typedef struct at_instance {
     f32 leverage;
 
     // runtime data
-    at_position* trades;
-    u32 trade_count;
-    at_order* orders;
-    u32 orders_count;
+    at_position* open_positions;
+    u32 open_positions_count;
+    at_position* closed_positions;
+    u32 closed_positions_count;
 } at_instance;
 
 typedef void (*on_start_callback)(at_instance* instance);
@@ -118,11 +112,8 @@ extern void at_free_symbol(at_symbol* symbol);
 extern void at_init_account(at_account* account, f64 balance);
 extern void at_free_account(at_account* account);
 
-extern void at_init_position(at_position* position, at_id account_id, c8* symbol, u32 volume, f64 open_price, u32 open_time);
+extern void at_init_position(at_position* position, c8* symbol, u32 volume, i8 direction, f64 open_price, f64 commission, f64 take_profit_price, f64 stop_loss_price);
 extern void at_free_position(at_position* position);
-
-extern void at_init_order(at_order* order, c8* symbol, u32 volume, f64 price, i8 direction, u8 type);
-extern void at_free_order(at_order* order);
 
 extern void at_init_strategy(at_strategy* strategy, c8* name, on_start_callback on_start, on_tick_callback on_tick, u32* candles_periods, sz candles_periods_count);
 extern void at_update_strategy(at_strategy* strategy, at_instance* instance, at_tick* tick);
@@ -130,9 +121,7 @@ extern void at_free_strategy(at_strategy* strategy);
 
 extern void at_init_instance(at_instance* instance, at_strategy* strategy, at_symbol* symbol, at_account* account, f32 commission, f32 swap, f32 leverage);
 extern void at_free_instance(at_instance* instance);
-extern void at_place_order(at_instance* instance, at_order* order);
-extern void at_remove_order(at_instance* instance, at_order* order);
-extern void at_close_order(at_instance* instance, at_order* order, f64 close_price);
 extern void at_add_position(at_instance* instance, at_position* position);
+extern void at_close_position(at_instance* instance, at_position* position, f64 close_price);
 extern void at_start_instance(at_instance* instance);
 extern void at_tick_instance(at_instance* instance, at_tick* tick);
