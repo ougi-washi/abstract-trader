@@ -97,6 +97,16 @@ typedef struct at_strategy {
     sz cached_candles_count;
 } at_strategy;
 
+typedef struct at_backtest {
+    c8* file_path;
+
+    // runtime data
+    at_instance* instance;
+    at_tick* ticks;
+    sz ticks_count;
+    
+} at_backtest;
+
 extern at_id at_new_id();
 
 extern void at_init_symbol(at_symbol* symbol, c8* name, c8* exchange, c8* currency, sz tick_count);
