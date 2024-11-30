@@ -2,4 +2,3 @@
 #pragma once
 
 static const char* STRING_NONE = "NONE";
-static const char* ROOT_PATH = "./../"; // Executable in ./bin/

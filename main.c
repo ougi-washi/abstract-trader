@@ -3,7 +3,6 @@
 #include "core/types.h"
 #include "core/log.h"
 #include "core/render.h"
-#include "candle_fs.h"
 
 at_tick ticks_sample[] = {
     {142.0, 100.0}, {144.0, 100.0}, {145.5, 100.0}, {143.0, 100.0}, {147.0, 100.0}, {150.0, 100.0},
@@ -54,7 +53,5 @@ i32 main(i32 argc, c8 **argv) {
 
     free(candles);
     at_free_symbol(&symbol);
-    // printf("Vertex Shader:\n%s\n", candle_vs);
-
     return 0;
 }

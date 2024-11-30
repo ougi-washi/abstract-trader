@@ -2,6 +2,7 @@
 
 #include "fs.h"
 #include <stdlib.h>
+#include <string.h>
 
 c8* at_read_file(const char* path){
     FILE* file = fopen(path, "r");

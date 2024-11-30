@@ -1,35 +1,18 @@
 // abstract-trader https://github.com/ougi-washi/abstract-trader
 #include "render.h"
 #include "log.h"
+#include "fs.h"
 #include <assert.h>
 
 #define AT_WINDOW_TITLE "Abstract Trader"
 #define AT_WINDOW_WIDTH 800
 #define AT_WINDOW_HEIGHT 600
 
-const char* vertex_shader_src = 
-"#version 330 core\n"
-"layout(location = 0) in vec2 aPos;\n"
-"layout(location = 1) in vec3 instanceColor;\n"
-"layout(location = 2) in vec2 texCoords;\n"
-"out vec3 fragColor;\n"
-"out vec2 fragTexCoords;\n"
-"void main() {\n"
-"    // Calculate final position in NDC (normalized device coordinates)\n"
-"    gl_Position = vec4(aPos, 0.0, 1.0);\n"
-"    // Pass instance attributes to the fragment shader\n"
-"    fragColor = instanceColor;\n"
-"    fragTexCoords = texCoords;\n"
-"}\n";
 
-
-const char* fragment_shader_src = 
-"#version 330 core\n"
-"in vec3 fragColor;\n"
-"out vec4 FragColor;\n"
-"void main() {\n"
-"    FragColor = vec4(fragColor, 1.0f);\n"
-"}\n";
+#define AT_CANDLE_VS_PATH "shaders/candle_vs.glsl"
+#define AT_CANDLE_FS_PATH "shaders/candle_fs.glsl"
+#define AT_TICK_VS_PATH "shaders/tick_vs.glsl"
+#define AT_TICK_FS_PATH "shaders/tick_fs.glsl"
 
 void at_gl_error_check(){
     GLenum error = glGetError();
@@ -226,7 +209,8 @@ void at_candles_to_render_object(at_candle *candles, sz candle_count, at_render_
     glEnableVertexAttribArray(2); // Texture Coordinates
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 7 * sizeof(GLfloat), (void*)(5 * sizeof(GLfloat)));
 
-
+    char* vertex_shader_src = at_read_file(AT_CANDLE_VS_PATH);
+    char* fragment_shader_src = at_read_file(AT_CANDLE_FS_PATH);
     object->shader_program = at_compile_shader(vertex_shader_src, fragment_shader_src);
     object->data_size = candle_count;
 
@@ -254,6 +238,8 @@ void at_ticks_to_render_object(at_tick *ticks, sz tick_count, at_render_object *
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (void*)0);
     glVertexAttribDivisor(0, 1);
 
+    const char* vertex_shader_src = at_read_file(AT_TICK_VS_PATH);
+    const char* fragment_shader_src = at_read_file(AT_TICK_FS_PATH);
     object->shader_program = at_compile_shader(vertex_shader_src, fragment_shader_src);
     object->data_size = tick_count;
 

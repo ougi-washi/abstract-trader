@@ -46,6 +46,8 @@ if (NOT OPENGL_FOUND)
     message(FATAL_ERROR "OpenGL not found!")
 endif()
 
+
+
 # Main module
 set(MAIN_MODULE_INCLUDES ${PROJECT_SOURCE_DIR}/${SRC_DIR} ${PROJECT_SOURCE_DIR}/${LIB_DIR})
 setup_library(main_module ${SRC_DIR} "${MAIN_MODULE_INCLUDES}")
@@ -57,9 +59,12 @@ target_link_libraries(${PROJECT_NAME} PUBLIC main_module)
 set_target_properties(${PROJECT_NAME} PROPERTIES
                       RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/${BIN_DIR})
 
-add_subdirectory(shaders)
-target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_BINARY_DIR}/shaders)
-add_dependencies(${PROJECT_NAME} shaders)
+# Shader directory
+add_custom_command(
+    TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${CMAKE_SOURCE_DIR}/shaders" $<TARGET_FILE_DIR:${PROJECT_NAME}>/shaders ## TODO: encrypt shaders
+)
 
 ## Definitions
 if(MSVC)
