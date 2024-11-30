@@ -520,6 +520,7 @@ b8 at_json_has_key(at_json* json, const c8* key){
             }
         }
     }
+    return 0;
 }
 
 b8 at_json_has_index(at_json* json, sz index){
@@ -538,6 +539,7 @@ b8 at_json_has_index(at_json* json, sz index){
             return 1;
         }
     }
+    return 0;
 }
 
 b8 at_json_is_string(at_json* json, const c8* key){
@@ -581,6 +583,7 @@ b8 at_json_is_number(at_json* json, const c8* key){
             }
         }
     }
+    return 0;
 }
 
 b8 at_json_is_integer(at_json* json, const c8* key){
@@ -705,11 +708,7 @@ b8 at_json_is_false(at_json* json, const c8* key){
 }
 
 b8 at_json_is_empty(at_json* json){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] != ' ' && json->data[i] != '\n' && json->data[i] != '\t'){
-            return 0;
-        }
-    }
+    return json->size == 0;
 }
 
 b8 at_json_is_equal(at_json* json1, at_json* json2){
