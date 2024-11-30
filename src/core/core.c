@@ -74,7 +74,7 @@ at_candle* at_get_candles(at_symbol* symbol, u32 period, u32* out_candle_count) 
 
     for (u32 i = 0; i < candle_count; i++) {
         u32 start_idx = i * period;
-        u32 end_idx = start_idx + period;  // End index is exclusive
+        u32 end_idx = start_idx + period;
 
         at_candle candle = {0};
         candle.open = symbol->ticks[start_idx].price;
@@ -97,7 +97,7 @@ at_candle* at_get_candles(at_symbol* symbol, u32 period, u32* out_candle_count) 
             }
         }
 
-        candle.adj_close /= period; // Average price for the period
+        candle.adj_close /= period;
         candles[i] = candle;
     }
 
@@ -105,11 +105,45 @@ at_candle* at_get_candles(at_symbol* symbol, u32 period, u32* out_candle_count) 
     return candles;
 }
 
+void at_add_ticks_to_candles(at_candles *candles, at_tick *ticks, u32 ticks_count){
+    assert(candles && ticks && ticks_count > 0);
+    const u32 candle_period = candles->period;
+    const u32 candle_count = candles->count;
+    const u32 new_candle_count = candle_count + (ticks_count / candle_period);
+    candles->candles = (at_candle*)realloc(candles->candles, sizeof(at_candle) * new_candle_count);
+    assert(candles->candles);
+    for (u32 i = 0; i < ticks_count; i++) {
+        const u32 candle_idx = candle_count + (i / candle_period);
+        at_candle* candle = &candles->candles[candle_idx];
+        if (i % candle_period == 0) {
+            candle->open = ticks[i].price;
+            candle->high = ticks[i].price;
+            candle->low = ticks[i].price;
+            candle->volume = 0;
+            candle->adj_close = 0;
+        }
+        candle->close = ticks[i].price;
+        candle->volume += ticks[i].volume;
+        candle->adj_close += ticks[i].price;
+        if (ticks[i].price > candle->high) {
+            candle->high = ticks[i].price;
+        }
+        if (ticks[i].price < candle->low) {
+            candle->low = ticks[i].price;
+        }
+    }
+}
+
 i8 at_get_candle_direction(at_candle* candle){
     assert(candle);
     if (candle->close > candle->open){ return 1; } 
     else if (candle->close < candle->open){ return -1; }
     return 0;
+}
+
+void at_update_candles(at_candles *candles, at_tick *ticks, u32 ticks_count){
+    assert(candles && ticks && ticks_count > 0);
+
 }
 
 void at_free_symbol(at_symbol* symbol){
@@ -169,6 +203,7 @@ void at_add_order(at_account* account, at_order* order) {
     } else {
         account->margin_level = 0;
     }
+    log_info("Order added: %s %u %f", order->symbol, order->volume, order->price);
 }
 
 void at_update_order(at_account* account, at_order* order, f64 price) {
@@ -202,6 +237,7 @@ void at_close_order(at_account* account, at_order* order, f64 price) {
         account->margin_level = 0;
     }
     account->equity += order->volume * (price - order->price);
+    log_info("Order closed: %s %u %f", order->symbol, order->volume, price);
 }
 
 void at_cancel_order(at_account* account, at_order* order) {
@@ -223,17 +259,46 @@ void at_free_order(at_order* order){
     // Nothing to free
 }
 
-void at_init_strategy(at_strategy* strategy, c8* name, on_start_callback on_start, on_tick_callback on_tick, on_candle_callback on_candle){
-    assert(strategy && name && on_start && on_tick && on_candle);
+void at_init_strategy(at_strategy *strategy, c8 *name, on_start_callback on_start, on_tick_callback on_tick, u32 *candles_periods, sz candles_periods_count){
+    assert(strategy && name && candles_periods && candles_periods_count > 0); // at least one period
     strategy->id = at_new_id();
     strategy->name = name;
     strategy->on_start = on_start;
     strategy->on_tick = on_tick;
-    strategy->on_candle = on_candle;
+    strategy->candles_periods = candles_periods;
+    strategy->candles_periods_count = candles_periods_count;
+    strategy->cached_candles = (at_candles*)malloc(sizeof(at_candles));
+    strategy->cached_candles_count = 1;
+}
+
+void at_update_strategy(at_strategy *strategy, at_instance *instance, at_tick *tick){
+    assert(strategy && instance && tick);
+    for (sz i = 0; i < strategy->candles_periods_count; i++){
+        u32 period = strategy->candles_periods[i];
+        if (strategy->cached_candles_count > 0){
+            at_candles* candles = &strategy->cached_candles[i];
+            if (candles->period == period){
+                at_add_ticks_to_candles(candles, tick, 1);
+            }
+        }
+        else {
+            at_candles candles = {0};
+            candles.period = period;
+            candles.count = 1;
+            candles.candles = (at_candle*)malloc(sizeof(at_candle));
+            assert(candles.candles);
+            at_add_ticks_to_candles(&candles, tick, 1);
+            strategy->cached_candles_count++;
+            strategy->cached_candles = (at_candles*)realloc(strategy->cached_candles, sizeof(at_candles) * strategy->cached_candles_count);
+            assert(strategy->cached_candles);
+            strategy->cached_candles[strategy->cached_candles_count - 1] = candles;
+        }
+    }
 }
 
 void at_free_strategy(at_strategy* strategy){
-    // Nothing to free
+    assert(strategy);
+    free(strategy->cached_candles);
 }
 
 void at_init_instance(at_instance* instance, at_strategy* strategy, at_symbol* symbol, at_account* account){
@@ -261,13 +326,20 @@ void at_add_trade(at_instance* instance, at_trade* trade){
     instance->trades[instance->trade_count - 1] =* trade;
 }
 
+void at_start_instance(at_instance *instance){
+    assert(instance);
+    if (instance->strategy->on_start){
+        instance->strategy->on_start(instance);
+    }
+}
+
 void at_tick_instance(at_instance* instance, at_tick* tick){
     assert(instance && tick);
     at_add_tick(instance->symbol, tick);
-    instance->strategy->on_tick(instance, tick);
-    u32 candle_count = 0;
-    instance->strategy->on_candle(instance, at_get_candles(instance->symbol, 5, &candle_count));
-
+    at_update_strategy(instance->strategy, instance, tick);
+    if (instance->strategy->on_tick){
+        instance->strategy->on_tick(instance, tick);
+    }
     for (u32 i = 0; i < instance->order_count; i++){
         at_order* order = &instance->orders[i];
         if (strcmp(order->symbol, instance->symbol->name) == 0){

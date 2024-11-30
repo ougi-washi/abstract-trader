@@ -4,7 +4,7 @@
 #include "core/log.h"
 #include "core/render.h"
 
-at_tick ticks_sample[] = {
+const at_tick ticks_sample[] = {
     {142.0, 100.0}, {144.0, 100.0}, {145.5, 100.0}, {143.0, 100.0}, {147.0, 100.0}, {150.0, 100.0},
     {149.0, 100.0}, {152.0, 100.0}, {148.0, 100.0}, {146.0, 100.0}, {144.5, 100.0}, {147.5, 100.0},
     {135.0, 100.0}, {137.0, 100.0}, {139.5, 100.0}, {136.5, 100.0}, {140.0, 100.0}, {142.5, 100.0},
@@ -24,33 +24,48 @@ at_tick ticks_sample[] = {
     {110.0, 100.0}, {111.5, 100.0}, {112.0, 100.0}, {113.5, 100.0}, {115.0, 100.0}, {118.5, 100.0},
     {100.0, 100.0}, {102.0, 100.0}, {103.5, 100.0}, {105.0, 100.0}, {107.0, 100.0}, {109.0, 100.0},
 };
+const sz ticks_count = sizeof(ticks_sample) / sizeof(at_tick);
+
+void on_start_strategy(at_instance *instance) {
+    log_info("Starting strategy %s", instance->strategy->name);
+}
+
+void on_tick_strategy(at_instance *instance, at_tick *tick) {
+    if (tick->price > 150.0 && tick->price < 160.0) {
+        at_order order = {0};
+        at_init_order(&order, instance->account->id, instance->symbol->name, 100, tick->price, 0);
+        at_add_order(instance->account, &order);
+    }
+}
 
 i32 main(i32 argc, c8 **argv) {
-    at_render render = {0};
-    at_init_render(&render);
     at_symbol symbol = {0};
+    at_account account = {0};
+    at_strategy strategy = {0};
+    at_instance instance = {0};
     at_init_symbol(&symbol, "AAPL", "NASDAQ", "USD", 0);
-    sz ticks_count = sizeof(ticks_sample) / sizeof(at_tick);
-    at_add_ticks(&symbol, ticks_sample, ticks_count);
+    at_init_account(&account, 1000.0);
+    at_init_strategy(&strategy, "Test Strategy", on_start_strategy, on_tick_strategy, (u32[]){3, 5, 15}, 3); // use 3, 5, 15 candles (from ticks) for strategy
+    at_init_instance(&instance, &strategy, &symbol, &account);
 
-    u32 candle_count = 0;
-    at_candle* candles = at_get_candles(&symbol, 5, &candle_count); // 3 seconds candles (if ticks are in seconds)
-    if (candles) {
-        for (u32 i = 0; i < candle_count; i++) {
-            log_info("Candle %u: Open=%.2f, High=%.2f, Low=%.2f, Close=%.2f, Volume=%.2f",
-                i, candles[i].open, candles[i].high, candles[i].low,
-                candles[i].close, candles[i].volume);
-        }
+    at_start_instance(&instance);
+    for (sz i = 0; i < ticks_count; i++) {
+        at_tick tick = ticks_sample[i];
+        at_tick_instance(&instance, &tick);
     }
 
+    u32 candle_count = 0;
+    at_candle *candles = at_get_candles(&symbol, 5, &candle_count);
+
+    // Render candles
+    at_render render = {0};
+    at_init_render(&render);
     at_render_object object = {0};
     at_candles_to_render_object(candles, candle_count, &object);
     at_add_render_object(&render, &object);
-
     while (at_should_loop_render(&render)) {
         at_draw_render(&render);
     }
-
     free(candles);
     at_free_symbol(&symbol);
     return 0;
