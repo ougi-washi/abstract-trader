@@ -17,19 +17,18 @@ if(NOT CMAKE_GENERATOR)
 endif()
 
 # Directory setup
-set(LIB_DIR "lib")
 set(SRC_DIR "src")
 set(BIN_DIR "bin")
 
 # setup library macro
-macro(setup_library arg_lib_name arg_source_path arg_include_path)
-	message(STATUS "Adding ${arg_lib_name}")
+macro(setup_module arg_module_name arg_source_path arg_include_path)
+	message(STATUS "Adding ${arg_module_name}")
 	file(GLOB CURRENT_SRC_FILES	"${arg_source_path}/*.c" 
 								"${arg_source_path}/*.cpp"
 								"${arg_source_path}/**/*.c" 
 								"${arg_source_path}/**/*.cpp")
-	add_library(${arg_lib_name} STATIC	${CURRENT_SRC_FILES})
-	target_include_directories(${arg_lib_name} PUBLIC ${arg_include_path})
+	add_library(${arg_module_name} STATIC	${CURRENT_SRC_FILES})
+	target_include_directories(${arg_module_name} PUBLIC ${arg_include_path})
 endmacro()
 
 find_package(Threads REQUIRED)
@@ -46,11 +45,9 @@ if (NOT OPENGL_FOUND)
     message(FATAL_ERROR "OpenGL not found!")
 endif()
 
-
-
 # Main module
-set(MAIN_MODULE_INCLUDES ${PROJECT_SOURCE_DIR}/${SRC_DIR} ${PROJECT_SOURCE_DIR}/${LIB_DIR})
-setup_library(main_module ${SRC_DIR} "${MAIN_MODULE_INCLUDES}")
+set(MAIN_MODULE_INCLUDES ${PROJECT_SOURCE_DIR}/${SRC_DIR})
+setup_module(main_module ${SRC_DIR} "${MAIN_MODULE_INCLUDES}")
 target_link_libraries(main_module PUBLIC OpenGL::GL glfw Threads::Threads)
 
 # Executable
