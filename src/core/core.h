@@ -98,13 +98,11 @@ typedef struct at_strategy {
 } at_strategy;
 
 typedef struct at_backtest {
-    c8* file_path;
+    c8* path;
 
-    // runtime data
+    // runtime data, initialized from file (path)
     at_instance* instance;
-    at_tick* ticks;
-    sz ticks_count;
-    
+    u32 render_period;
 } at_backtest;
 
 extern at_id at_new_id();
@@ -126,6 +124,8 @@ extern void at_init_position(at_position* position, c8* symbol, u32 volume, i8 d
 extern void at_free_position(at_position* position);
 
 extern void at_init_strategy(at_strategy* strategy, c8* name, on_start_callback on_start, on_tick_callback on_tick, u32* candles_periods, sz candles_periods_count);
+extern void at_set_strategy_on_start(at_strategy* strategy, on_start_callback on_start);
+extern void at_set_strategy_on_tick(at_strategy* strategy, on_tick_callback on_tick);
 extern void at_update_strategy(at_strategy* strategy, at_instance* instance, at_tick* tick);
 extern void at_free_strategy(at_strategy* strategy);
 
@@ -135,3 +135,7 @@ extern void at_add_position(at_instance* instance, at_position* position);
 extern void at_close_position(at_instance* instance, at_position* position, f64 close_price);
 extern void at_start_instance(at_instance* instance);
 extern void at_tick_instance(at_instance* instance, at_tick* tick);
+
+extern void at_init_backtest(at_backtest* backtest, c8* path, on_start_callback on_start, on_tick_callback on_tick);
+extern void at_start_backtest(at_backtest* backtest);
+extern void at_free_backtest(at_backtest* backtest);

@@ -1,5 +1,7 @@
 #include "core.h"
 #include "log.h"
+#include "fs.h"
+#include "json.h"
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
@@ -199,6 +201,16 @@ void at_init_strategy(at_strategy *strategy, c8 *name, on_start_callback on_star
     strategy->cached_candles_count = 1;
 }
 
+void at_set_strategy_on_start(at_strategy *strategy, on_start_callback on_start){
+    assert(strategy);
+    strategy->on_start = on_start;
+}
+
+void at_set_strategy_on_tick(at_strategy *strategy, on_tick_callback on_tick){
+    assert(strategy);
+    strategy->on_tick = on_tick;
+}
+
 void at_update_strategy(at_strategy *strategy, at_instance *instance, at_tick *tick){
     assert(strategy && instance && tick);
     for (sz i = 0; i < strategy->candles_periods_count; i++){
@@ -327,4 +339,167 @@ void at_tick_instance(at_instance* instance, at_tick* tick){
             at_close_position(instance, position, position->stop_loss_price);
         }
     }
+}
+
+b8 at_get_symbol_from_json(at_symbol *symbol, at_json *json){
+    assert(symbol && json);
+    c8* name = at_json_get_string(json, "name");
+    if (!name){
+        log_error("Failed to get symbol name from JSON");
+        return false;
+    }
+    c8* exchange = at_json_get_string(json, "exchange");
+    if (!exchange){
+        log_error("Failed to get symbol exchange from JSON");
+        return false;
+    }
+    c8* currency = at_json_get_string(json, "currency");
+    if (!currency){
+        log_error("Failed to get symbol currency from JSON");
+        return false;
+    }
+    at_json ticks = at_json_get_array(json, "ticks");
+    if (!at_json_is_valid(&ticks)){
+        log_error("Failed to get symbol ticks from JSON");
+        return false;
+    }
+    sz tick_count = at_json_get_array_size(&ticks);
+    if (tick_count == 0){
+        log_error("No ticks found in JSON");
+        return false;
+    }
+    at_init_symbol(symbol, name, exchange, currency, tick_count);
+    for (sz i = 0; i < tick_count; i++){
+        at_json tick = at_json_get_array_item(&ticks, i);
+        f64 price = at_json_get_number(&tick, "price");
+        u32 volume = at_json_get_integer(&tick, "volume");
+        at_tick t = {price, volume};
+        at_add_tick(symbol, &t);
+    }
+    return true;
+}
+
+b8 at_get_account_from_json(at_account *account, at_json *json){
+    assert(account && json);
+    f64 balance = at_json_get_number(json, "balance");
+    if (balance == 0){
+        log_error("Failed to get account balance from JSON");
+        return false;
+    }
+    at_init_account(account, balance);
+}
+
+b8 at_get_strategy_from_json(at_strategy *strategy, at_json *json){
+    assert(strategy && json);
+    c8* name = at_json_get_string(json, "name");
+    if (!name){
+        log_error("Failed to get strategy name from JSON");
+        return false;
+    }
+    at_json candles = at_json_get_array(json, "candles");
+    if (!at_json_is_valid(&candles)){
+        log_error("Failed to get strategy candles from JSON");
+        return false;
+    }
+    sz candles_count = at_json_get_array_size(&candles);
+    if (candles_count == 0){
+        log_error("No candles found in JSON");
+        return false;
+    }
+    u32* periods = (u32*)malloc(sizeof(u32) * candles_count);
+    assert(periods);
+    for (sz i = 0; i < candles_count; i++){
+        periods[i] = at_json_get_integer(&candles, i);
+        if (periods[i] == 0){
+            log_error("Failed to get strategy candle period from JSON");
+            return false;
+        }
+    }
+    at_init_strategy(strategy, name, NULL, NULL, periods, candles_count);
+}
+
+// TODO change all the checks into a macro that access the variable name and prints the error message
+b8 at_get_instance_from_json(at_instance *instance, at_json *json){
+    assert(instance && json);
+    at_symbol* symbol = (at_symbol*)malloc(sizeof(at_symbol)); 
+    at_account* account = (at_account*)malloc(sizeof(at_account));
+    at_strategy* strategy = (at_strategy*)malloc(sizeof(at_strategy));
+    at_json symbol_json = at_json_get_object(json, "symbol");
+    if (!at_get_symbol_from_json(symbol, &symbol_json)){
+        log_error("Failed to get symbol from JSON");
+        return false;
+    }
+    at_json account_json = at_json_get_object(json, "account");
+    if (!at_get_account_from_json(account, &account_json)){
+        log_error("Failed to get account from JSON");
+        return false;
+    }
+    at_json strategy_json = at_json_get_object(json, "strategy");
+    if (!at_get_strategy_from_json(strategy, &strategy_json)){
+        log_error("Failed to get strategy from JSON");
+        return false;
+    }
+    at_get_symbol_from_json(symbol, &symbol_json);
+    if (!symbol){
+        log_error("Failed to get symbol from JSON");
+        return false;
+    }
+    at_get_account_from_json(account, &account_json);
+    if (!account){
+        log_error("Failed to get account from JSON");
+        return false;
+    }
+    at_get_strategy_from_json(strategy, &strategy_json);
+    if (!strategy){
+        log_error("Failed to get strategy from JSON");
+        return false;
+    }
+    at_init_instance(instance, strategy, symbol, account, 0.0, 0.0, 1.0);
+}
+
+void at_init_backtest(at_backtest *backtest, c8 *path, on_start_callback on_start, on_tick_callback on_tick){
+    assert(backtest && path);
+    backtest->path = path;
+
+    c8* file_content = at_read_file(path);
+    if (!file_content){
+        log_error("Failed to read file %s", path);
+        return;
+    }
+    at_json json_root = at_parse_json(file_content);
+    if (!at_json_is_valid(&json_root)){
+        log_error("Failed to parse JSON file %s", path);
+        free(file_content);
+        return;
+    }
+    if (backtest->instance){
+        at_free_instance(backtest->instance);
+        free(backtest->instance);
+    }
+    backtest->instance = (at_instance*)malloc(sizeof(at_instance));
+    at_get_instance_from_json(backtest->instance, &json_root);
+    backtest->render_period = (u32)at_json_get_integer(&json_root, "render_period");
+    at_set_strategy_on_start(backtest->instance->strategy, on_start);
+    at_set_strategy_on_tick(backtest->instance->strategy, on_tick);
+}
+
+void at_start_backtest(at_backtest *backtest){
+    assert(backtest);
+    at_start_instance(backtest->instance);
+    at_symbol* symbol = backtest->instance->symbol;
+    u32 tick_count = symbol->tick_count;
+    for (u32 i = 0; i < tick_count; i++){
+        at_tick tick = *at_get_tick(symbol, i);
+        at_tick_instance(backtest->instance, &tick);
+    }
+}
+
+void at_free_backtest(at_backtest *backtest){
+    assert(backtest && backtest->instance);
+    at_free_symbol(backtest->instance->symbol);
+    at_free_account(backtest->instance->account);
+    at_free_strategy(backtest->instance->strategy);
+    at_free_instance(backtest->instance);
+    free(backtest->instance);
+    free(backtest->path);
 }

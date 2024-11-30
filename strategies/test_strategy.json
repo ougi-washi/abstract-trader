@@ -1,0 +1,29 @@
+{
+    "symbol": {
+        "name": "AAPL",
+        "exchange": "NASDAQ",
+        "currency": "USD",
+        "ticks": [
+            {"price": 150.0, "volume": 1000}, {"price": 152.3, "volume": 1150}, {"price": 147.8, "volume": 1400}, {"price": 151.7, "volume": 1250},
+            {"price": 149.5, "volume": 1600}, {"price": 154.0, "volume": 1700}, {"price": 151.5, "volume": 1800}, {"price": 156.0, "volume": 2000},
+            {"price": 153.2, "volume": 1950}, {"price": 158.5, "volume": 2200}, {"price": 157.0, "volume": 2300}, {"price": 159.3, "volume": 2400},
+            {"price": 155.8, "volume": 2100}, {"price": 160.2, "volume": 2600}, {"price": 158.0, "volume": 2700}, {"price": 161.7, "volume": 3000},
+            {"price": 159.5, "volume": 3100}, {"price": 163.2, "volume": 3300}, {"price": 160.0, "volume": 3200}, {"price": 165.3, "volume": 3400},
+            {"price": 162.7, "volume": 3500}, {"price": 166.5, "volume": 3700}, {"price": 164.0, "volume": 3900}, {"price": 168.8, "volume": 4100},
+            {"price": 165.0, "volume": 4000}, {"price": 170.2, "volume": 4300}, {"price": 167.5, "volume": 4400}, {"price": 171.8, "volume": 4600}, 
+            {"price": 169.0, "volume": 4800}, {"price": 173.2, "volume": 5000}, {"price": 170.7, "volume": 5200}, {"price": 175.0, "volume": 5500}, 
+            {"price": 172.3, "volume": 5400}, {"price": 176.8, "volume": 5700}, {"price": 173.5, "volume": 5900}, {"price": 178.2, "volume": 6200}, 
+            {"price": 175.0, "volume": 6000}, {"price": 180.7, "volume": 6500}, {"price": 177.3, "volume": 6400}, {"price": 182.5, "volume": 6800}, 
+            {"price": 179.0, "volume": 6700}, {"price": 184.3, "volume": 7000}, {"price": 180.7, "volume": 6900}, {"price": 186.5, "volume": 7300}, 
+            {"price": 183.2, "volume": 7200}, {"price": 188.0, "volume": 7500}, {"price": 184.8, "volume": 7400}, {"price": 190.5, "volume": 7800}
+        ]
+    },
+    "account": {
+        "balance": 10000.0
+    },
+    "strategy": {
+        "name": "Simple Moving Average",
+        "candles": [5, 10, 15]
+    },
+    "render_period": 5
+}

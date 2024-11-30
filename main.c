@@ -81,6 +81,13 @@ i32 main(i32 argc, c8 **argv) {
     at_free_strategy(&strategy);
     at_free_instance(&instance);
     at_free_render(&render);
-    
+
     return 0;
 }
+
+// i32 main (i32 argc, c8 **argv) {
+//     at_backtest backtest = {0};
+//     at_init_backtest(&backtest, "strategies/test_strategy.json", on_start_strategy, on_tick_strategy);
+//     at_start_backtest(&backtest);
+//     return 0;
+// }

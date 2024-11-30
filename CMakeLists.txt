@@ -63,6 +63,13 @@ add_custom_command(
     "${CMAKE_SOURCE_DIR}/shaders" $<TARGET_FILE_DIR:${PROJECT_NAME}>/shaders ## TODO: encrypt shaders
 )
 
+# Stratgies directory
+add_custom_command(
+    TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${CMAKE_SOURCE_DIR}/strategies" $<TARGET_FILE_DIR:${PROJECT_NAME}>/strategies ## TODO: encrypt strategies
+)
+
 ## Definitions
 if(MSVC)
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)
