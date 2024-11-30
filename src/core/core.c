@@ -2,9 +2,11 @@
 #include "log.h"
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
+#include <stdatomic.h>
 
 at_id at_new_id(){
-    static at_id id = 0;
+    static _Atomic at_id id = 0;
     return id++;
 }
 
@@ -14,8 +16,12 @@ void at_init_symbol(at_symbol* symbol, c8* name, c8* exchange, c8* currency, sz 
     symbol->exchange = exchange;
     symbol->currency = currency;
     symbol->tick_count = tick_count;
-    if (tick_count > 0){
-        symbol->ticks = (at_tick* )malloc(sizeof(at_tick)*  tick_count);
+    if (tick_count > 0) {
+        symbol->ticks = (at_tick*)malloc(sizeof(at_tick) * tick_count);
+        assert(symbol->ticks);
+    }
+    else {
+        symbol->ticks = NULL;
     }
 }
 
@@ -23,6 +29,7 @@ void at_add_tick(at_symbol* symbol, at_tick* tick){
     assert(symbol);
     symbol->tick_count++;
     symbol->ticks = (at_tick* )realloc(symbol->ticks, sizeof(at_tick)*  symbol->tick_count);
+    assert(symbol->ticks);
     symbol->ticks[symbol->tick_count - 1] =* tick;
 }
 
@@ -31,11 +38,7 @@ void at_add_ticks(at_symbol* symbol, at_tick* ticks, sz count) {
     u32 current_count = symbol->tick_count;
     symbol->tick_count += count;
     symbol->ticks = (at_tick*)realloc(symbol->ticks, sizeof(at_tick) * symbol->tick_count);
-    if (!symbol->ticks) {
-        log_error("Failed to allocate memory for ticks");
-        symbol->tick_count = 0;
-        return;
-    }
+    assert(symbol->ticks);
     for (u32 i = 0; i < count; i++) {
         symbol->ticks[current_count + i] = ticks[i];
     }
@@ -66,6 +69,7 @@ at_candle* at_get_candles(at_symbol* symbol, u32 period, u32* out_candle_count) 
     at_candle* candles = (at_candle*)malloc(sizeof(at_candle) * candle_count);
     if (!candles) {
         log_error("Failed to allocate memory for candles");
+        *out_candle_count = 0;
         return NULL; 
     }
 
@@ -157,35 +161,65 @@ void at_init_order(at_order* order, at_id account_id, c8* symbol, u32 volume, f6
     order->time = time;
 }
 
-void at_add_order(at_account* account, at_order* order){
+void at_add_order(at_account* account, at_order* order) {
     assert(account && order);
-    account->margin += order->volume*  order->price;
+    account->margin += order->volume * order->price;
     account->free_margin = account->balance - account->margin;
-    account->margin_level = account->equity / account->margin;
+    if (account->margin != 0) {
+        account->margin_level = account->equity / account->margin;
+    } else {
+        account->margin_level = 0;
+    }
 }
 
-void at_update_order(at_account* account, at_order* order, f64 price){
-    account->margin -= order->volume*  order->price;
-    account->margin += order->volume*  price;
+void at_update_order(at_account* account, at_order* order, f64 price) {
+    assert(account && order);
+    account->margin -= order->volume * order->price;
+    account->margin += order->volume * price;
+    if (account->margin < 0) {
+        log_error("Margin cannot be negative");
+        account->margin = 0;
+    }
     account->free_margin = account->balance - account->margin;
-    account->margin_level = account->equity / account->margin;
+    if (account->margin != 0) {
+        account->margin_level = account->equity / account->margin;
+    } else {
+        account->margin_level = 0;
+    }
 }
 
-void at_close_order(at_account* account, at_order* order, f64 price){
+void at_close_order(at_account* account, at_order* order, f64 price) {
     assert(account && order);
-    account->margin -= order->volume*  order->price;
-    account->margin += order->volume*  price;
+    account->margin -= order->volume * order->price;
+    account->margin += order->volume * price;
+    if (account->margin < 0) {
+        log_error("Margin cannot be negative");
+        account->margin = 0;
+    }
     account->free_margin = account->balance - account->margin;
-    account->margin_level = account->equity / account->margin;
-    account->equity += order->volume*  (price - order->price);
+    if (account->margin != 0) {
+        account->margin_level = account->equity / account->margin;
+    } else {
+        account->margin_level = 0;
+    }
+    account->equity += order->volume * (price - order->price);
 }
 
-void at_cancel_order(at_account* account, at_order* order){
+void at_cancel_order(at_account* account, at_order* order) {
     assert(account && order);
-    account->margin -= order->volume*  order->price;
+    account->margin -= order->volume * order->price;
+    if (account->margin < 0) {
+        log_error("Margin cannot be negative");
+        account->margin = 0;
+    }
     account->free_margin = account->balance - account->margin;
-    account->margin_level = account->equity / account->margin;
+    if (account->margin != 0) {
+        account->margin_level = account->equity / account->margin;
+    } else {
+        account->margin_level = 0;
+    }
 }
+
 
 void at_free_order(at_order* order){
     // Nothing to free
@@ -238,7 +272,7 @@ void at_tick_instance(at_instance* instance, at_tick* tick){
 
     for (u32 i = 0; i < instance->order_count; i++){
         at_order* order = &instance->orders[i];
-        if (order->symbol == instance->symbol->name){
+        if (strcmp(order->symbol, instance->symbol->name) == 0){
             if (order->price >= tick->price){
                 at_close_order(instance->account, order, tick->price);
             }
