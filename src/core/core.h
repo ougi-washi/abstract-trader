@@ -11,6 +11,11 @@ typedef struct at_tick {
     f64 volume;
 } at_tick;
 
+typedef struct at_ticks {
+    at_tick* ticks;
+    sz count;
+} at_ticks;
+
 typedef struct at_candle {
     f64 open;
     f64 high;
@@ -95,6 +100,8 @@ typedef struct at_strategy {
     sz candles_periods_count;
     at_candles* cached_candles;
     sz cached_candles_count;
+    at_ticks cached_ticks;
+    sz non_processed_ticks_count; // ticks that were not
 } at_strategy;
 
 typedef struct at_backtest {
@@ -115,18 +122,22 @@ extern at_tick* at_get_last_tick(at_symbol* symbol);
 extern at_candle* at_get_candles(at_symbol* symbol, u32 period, u32* out_candle_count); // if tick 1s = 1, 1m = 60, 1h = 3600, 1d = 86400
 extern void at_add_ticks_to_candles(at_candles* candles, at_tick* ticks, u32 ticks_count);
 extern i8 at_get_candle_direction(at_candle* candle);
+extern void at_serialize_symbol(const at_symbol* symbol, c8* buffer, i32* pos);
 extern void at_free_symbol(at_symbol* symbol);
 
 extern void at_init_account(at_account* account, f64 balance);
+extern void at_serialize_account(const at_account* account, c8* buffer, i32* pos);
 extern void at_free_account(at_account* account);
 
 extern void at_init_position(at_position* position, c8* symbol, u32 volume, i8 direction, f64 open_price, f64 commission, f64 take_profit_price, f64 stop_loss_price);
+extern void at_serialize_position(const at_position* position, c8* buffer, i32* pos);
 extern void at_free_position(at_position* position);
 
 extern void at_init_strategy(at_strategy* strategy, const c8* name, on_start_callback on_start, on_tick_callback on_tick, u32* candles_periods, sz candles_periods_count);
 extern void at_set_strategy_on_start(at_strategy* strategy, on_start_callback on_start);
 extern void at_set_strategy_on_tick(at_strategy* strategy, on_tick_callback on_tick);
-extern void at_update_strategy(at_strategy* strategy, at_instance* instance, at_tick* tick);
+extern void at_update_strategy(at_strategy* strategy, at_tick* tick);
+extern void at_serialize_strategy(const at_strategy* strategy, c8* buffer, i32* pos);
 extern void at_free_strategy(at_strategy* strategy);
 
 extern void at_init_instance(at_instance* instance, at_strategy* strategy, at_symbol* symbol, at_account* account, f32 commission, f32 swap, f32 leverage);
@@ -135,7 +146,10 @@ extern void at_add_position(at_instance* instance, at_position* position);
 extern void at_close_position(at_instance* instance, at_position* position, f64 close_price);
 extern void at_start_instance(at_instance* instance);
 extern void at_tick_instance(at_instance* instance, at_tick* tick, const b8 add_tick);
+extern void at_serialize_instance(const at_instance* instance, c8* buffer, i32* pos);
 
 extern void at_init_backtest(at_backtest* backtest, c8* path, on_start_callback on_start, on_tick_callback on_tick);
 extern void at_start_backtest(at_backtest* backtest);
+extern void at_save_backtest_results(at_backtest* backtest, c8* path);
+extern void at_serialize_backtest(const at_backtest* backtest, c8* buffer, i32* pos);
 extern void at_free_backtest(at_backtest* backtest);

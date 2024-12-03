@@ -90,6 +90,33 @@ i32 main (i32 argc, c8 **argv) {
     at_backtest backtest = {0};
     at_init_backtest(&backtest, "strategies/test_strategy.json", on_start_strategy, on_tick_strategy);
     at_start_backtest(&backtest);
+    at_save_backtest_results(&backtest, "results/test_strategy.json");
+
+    at_render render = {0};
+    at_init_render(&render);
+    at_render_object object = {0};
+    
+    //logs
+    for (sz i = 0; i < backtest.instance->strategy->cached_candles_count; i++) {
+        at_candles *cached_candles = &backtest.instance->strategy->cached_candles[i];
+        log_info("Candles count: %zu", cached_candles->count);
+        for (sz j = 0; j < cached_candles->count; j++) {
+            at_candle *candle = &cached_candles->candles[j];
+            log_info("Candle %zu: O: %f, H: %f, L: %f, C: %f, V: %f, AC: %f", j, candle->open, candle->high, candle->low, candle->close, candle->volume, candle->adj_close);
+            log_info("Direction: %d", at_get_candle_direction(candle));
+        }
+    }
+    for (sz i = 0; i < backtest.instance->strategy->candles_periods_count; i++) {
+        log_info("Candles period: %u", backtest.instance->strategy->candles_periods[i]);
+    }
+
+    at_candles* cached_candles = &backtest.instance->strategy->cached_candles[0];
+    at_candles_to_render_object(cached_candles->candles, cached_candles->count, &object);
+    at_add_render_object(&render, &object);
+    while (at_should_loop_render(&render)) {
+        at_draw_render(&render);
+    }
+    at_free_render(&render);
     at_free_backtest(&backtest);
     return 0;
 }

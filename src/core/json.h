@@ -32,3 +32,15 @@ extern sz at_json_get_array_size(at_json *array);
 extern sz at_json_get_i32_array(at_json *value, const c8 *key, i32 *out_array, sz max_size);
 extern sz at_json_get_u32_array(at_json *value, const c8 *key, u32 *out_array, sz max_size);
 extern sz at_json_get_string_array(at_json *value, const c8 *key, c8 **out_array, sz max_size);
+extern b8 at_json_get_bool_array(at_json *value, const c8 *key, b8 *out_array, sz max_size);
+extern b8 at_json_get_object_array(at_json *value, const c8 *key, at_json **out_array, sz max_size);
+
+// helpers for writing
+void serialize_string(const c8* key, const c8* value, c8* buffer, i32* pos);
+void serialize_number(const c8* key, f64 value, c8* buffer, i32* pos);
+void serialize_int(const c8* key, i32 value, c8* buffer, i32* pos);
+void serialize_array_start(const c8* key, c8* buffer, i32* pos);
+void serialize_array_end(c8* buffer, i32* pos);
+void serialize_object_start(const c8* key, c8* buffer, i32* pos);
+void serialize_object_end(c8* buffer, i32* pos);
+void serialize_comma(c8* buffer, i32* pos);

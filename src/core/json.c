@@ -271,3 +271,69 @@ sz at_json_get_string_array(at_json *value, const c8 *key, c8 **out_array, sz ma
     }
     return count;
 }
+
+b8 at_json_get_bool_array(at_json *value, const c8 *key, b8 *out_array, sz max_size) {
+    at_json *array = at_json_get_array(value, key);
+    if (!array || array->type != AT_JSON_ARRAY) return 0;
+
+    sz count = 0;
+    for (sz i = 0; i < array->size && count < max_size; i++) {
+        at_json *item = at_json_get_array_item(array, i);
+        if (item && item->type == AT_JSON_BOOL) {
+            out_array[count++] = item->boolean;
+        }
+    }
+    return count;
+}
+
+b8 at_json_get_object_array(at_json *value, const c8 *key, at_json **out_array, sz max_size){
+    at_json *array = at_json_get_array(value, key);
+    if (!array || array->type != AT_JSON_ARRAY) return 0;
+
+    sz count = 0;
+    for (sz i = 0; i < array->size && count < max_size; i++) {
+        at_json *item = at_json_get_array_item(array, i);
+        if (item && item->type == AT_JSON_OBJECT) {
+            out_array[count++] = item;
+        }
+    }
+    return count;
+}
+
+void serialize_string(const c8 *key, const c8 *value, c8 *buffer, i32 *pos){
+    if (value) {
+        *pos += sprintf(buffer + *pos, "\"%s\":\"%s\"", key, value);
+    }
+}
+
+void serialize_number(const c8 *key, f64 value, c8 *buffer, i32 *pos){
+    *pos += sprintf(buffer + *pos, "\"%s\":%g", key, value);
+}
+
+void serialize_int(const c8 *key, i32 value, c8 *buffer, i32 *pos){
+    *pos += sprintf(buffer + *pos, "\"%s\":%d", key, value);
+}
+
+void serialize_array_start(const c8 *key, c8 *buffer, i32 *pos){
+    *pos += sprintf(buffer + *pos, "\"%s\":[", key);
+}
+
+void serialize_array_end(c8 *buffer, i32 *pos){
+    *pos += sprintf(buffer + *pos, "]");
+}
+
+void serialize_object_start(const c8 *key, c8 *buffer, i32 *pos){
+    if (key) {
+        *pos += sprintf(buffer + *pos, "\"%s\":{", key);
+    } else {
+        *pos += sprintf(buffer + *pos, "{");
+    }
+}
+
+void serialize_object_end(c8 *buffer, i32 *pos){
+    *pos += sprintf(buffer + *pos, "}");
+}
+
+void serialize_comma(c8 *buffer, i32 *pos){
+    *pos += sprintf(buffer + *pos, ",");
+}
