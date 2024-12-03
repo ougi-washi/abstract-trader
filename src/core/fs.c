@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-c8* at_read_file(const char* path){
+c8* at_read_file(const c8* path){
     FILE* file = fopen(path, "r");
     if (!file){
         return NULL;
@@ -23,7 +23,7 @@ c8* at_read_file(const char* path){
     return buffer;
 }
 
-void at_write_file(const char *path, const c8 *data){
+void at_write_file(const c8 *path, const c8 *data){
     FILE* file = fopen(path, "w");
     if (!file){
         return;

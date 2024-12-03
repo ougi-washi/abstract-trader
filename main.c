@@ -31,6 +31,7 @@ void on_start_strategy(at_instance *instance) {
 
 static b8 trigger_once = 0;
 void on_tick_strategy(at_instance *instance, at_tick *tick) {
+    log_info("Tick: %f", tick->price);
     if (tick->price > 150.0 && tick->price < 160.0 && !trigger_once) {
         at_position position1 = {0};
         at_init_position(&position1, "AAPL", 100, AT_DIRECTION_LONG, tick->price, 0.0, 160.0, 150.0);
@@ -47,47 +48,48 @@ void on_tick_strategy(at_instance *instance, at_tick *tick) {
     }
 }
 
-i32 main(i32 argc, c8 **argv) {
-    at_symbol symbol = {0};
-    at_account account = {0};
-    at_strategy strategy = {0};
-    at_instance instance = {0};
-    at_init_symbol(&symbol, "AAPL", "NASDAQ", "USD", 0);
-    at_init_account(&account, 1000.0);
-    at_init_strategy(&strategy, "Test Strategy", on_start_strategy, on_tick_strategy, (u32[]){3, 5, 15}, 3); // use 3, 5, 15 candles (from ticks) for strategy
-    at_init_instance(&instance, &strategy, &symbol, &account, 0.0, 0.0, 1.0);
+// i32 main(i32 argc, c8 **argv) {
+//     at_symbol symbol = {0};
+//     at_account account = {0};
+//     at_strategy strategy = {0};
+//     at_instance instance = {0};
+//     at_init_symbol(&symbol, "AAPL", "NASDAQ", "USD", 0);
+//     at_init_account(&account, 1000.0);
+//     at_init_strategy(&strategy, "Test Strategy", on_start_strategy, on_tick_strategy, (u32[]){3, 5, 15}, 3); // use 3, 5, 15 candles (from ticks) for strategy
+//     at_init_instance(&instance, &strategy, &symbol, &account, 0.0, 0.0, 1.0);
 
-    at_start_instance(&instance);
-    for (sz i = 0; i < ticks_count; i++) {
-        at_tick tick = ticks_sample[i];
-        at_tick_instance(&instance, &tick);
-    }
+//     at_start_instance(&instance);
+//     for (sz i = 0; i < ticks_count; i++) {
+//         at_tick tick = ticks_sample[i];
+//         at_tick_instance(&instance, &tick);
+//     }
 
-    u32 candle_count = 0;
-    at_candle *candles = at_get_candles(&symbol, 5, &candle_count);
+//     u32 candle_count = 0;
+//     at_candle *candles = at_get_candles(&symbol, 5, &candle_count);
 
-    // Render candles
-    at_render render = {0};
-    at_init_render(&render);
-    at_render_object object = {0};
-    at_candles_to_render_object(candles, candle_count, &object);
-    at_add_render_object(&render, &object);
-    while (at_should_loop_render(&render)) {
-        at_draw_render(&render);
-    }
-    free(candles);
-    at_free_symbol(&symbol);
-    at_free_account(&account);
-    at_free_strategy(&strategy);
-    at_free_instance(&instance);
-    at_free_render(&render);
+//     // Render candles
+//     at_render render = {0};
+//     at_init_render(&render);
+//     at_render_object object = {0};
+//     at_candles_to_render_object(candles, candle_count, &object);
+//     at_add_render_object(&render, &object);
+//     while (at_should_loop_render(&render)) {
+//         at_draw_render(&render);
+//     }
+//     free(candles);
+//     at_free_symbol(&symbol);
+//     at_free_account(&account);
+//     at_free_strategy(&strategy);
+//     at_free_instance(&instance);
+//     at_free_render(&render);
 
-    return 0;
-}
-
-// i32 main (i32 argc, c8 **argv) {
-//     at_backtest backtest = {0};
-//     at_init_backtest(&backtest, "strategies/test_strategy.json", on_start_strategy, on_tick_strategy);
-//     at_start_backtest(&backtest);
 //     return 0;
 // }
+
+i32 main (i32 argc, c8 **argv) {
+    at_backtest backtest = {0};
+    at_init_backtest(&backtest, "strategies/test_strategy.json", on_start_strategy, on_tick_strategy);
+    at_start_backtest(&backtest);
+    at_free_backtest(&backtest);
+    return 0;
+}

@@ -209,8 +209,8 @@ void at_candles_to_render_object(at_candle *candles, sz candle_count, at_render_
     glEnableVertexAttribArray(2); // Texture Coordinates
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 7 * sizeof(GLfloat), (void*)(5 * sizeof(GLfloat)));
 
-    char* vertex_shader_src = at_read_file(AT_CANDLE_VS_PATH);
-    char* fragment_shader_src = at_read_file(AT_CANDLE_FS_PATH);
+    c8* vertex_shader_src = at_read_file(AT_CANDLE_VS_PATH);
+    c8* fragment_shader_src = at_read_file(AT_CANDLE_FS_PATH);
     object->shader_program = at_compile_shader(vertex_shader_src, fragment_shader_src);
     object->data_size = candle_count;
 
@@ -238,15 +238,15 @@ void at_ticks_to_render_object(at_tick *ticks, sz tick_count, at_render_object *
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (void*)0);
     glVertexAttribDivisor(0, 1);
 
-    const char* vertex_shader_src = at_read_file(AT_TICK_VS_PATH);
-    const char* fragment_shader_src = at_read_file(AT_TICK_FS_PATH);
+    const c8* vertex_shader_src = at_read_file(AT_TICK_VS_PATH);
+    const c8* fragment_shader_src = at_read_file(AT_TICK_FS_PATH);
     object->shader_program = at_compile_shader(vertex_shader_src, fragment_shader_src);
     object->data_size = tick_count;
 
     free(instance_data);
 }
 
-GLuint at_compile_shader(const char *vertex_src, const char *fragment_src){
+GLuint at_compile_shader(const c8 *vertex_src, const c8 *fragment_src){
     GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertex_shader, 1, &vertex_src, NULL);
     glCompileShader(vertex_shader);
@@ -256,7 +256,7 @@ GLuint at_compile_shader(const char *vertex_src, const char *fragment_src){
     if (!success) {
         GLint log_length;
         glGetShaderiv(vertex_shader, GL_INFO_LOG_LENGTH, &log_length);
-        char* log = (char*)malloc(log_length);
+        c8* log = (c8*)malloc(log_length);
         glGetShaderInfoLog(vertex_shader, log_length, &log_length, log);
         log_error("Error compiling vertex shader: %s\n", log);
         assert(success);
@@ -271,7 +271,7 @@ GLuint at_compile_shader(const char *vertex_src, const char *fragment_src){
     if (!success) {
         GLint log_length;
         glGetShaderiv(fragment_shader, GL_INFO_LOG_LENGTH, &log_length);
-        char* log = (char*)malloc(log_length);
+        c8* log = (c8*)malloc(log_length);
         glGetShaderInfoLog(fragment_shader, log_length, &log_length, log);
         log_error("Error compiling fragment shader: %s\n", log);
         assert(success);
@@ -287,7 +287,7 @@ GLuint at_compile_shader(const char *vertex_src, const char *fragment_src){
     if (!success) {
         GLint log_length;
         glGetProgramiv(shader_program, GL_INFO_LOG_LENGTH, &log_length);
-        char* log = (char*)malloc(log_length);
+        c8* log = (c8*)malloc(log_length);
         glGetProgramInfoLog(shader_program, log_length, &log_length, log);
         log_error("Error linking shader program: %s\n", log);
         assert(success);

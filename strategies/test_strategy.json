@@ -23,7 +23,7 @@
     },
     "strategy": {
         "name": "Simple Moving Average",
-        "candles": [5, 10, 15]
+        "candles_periods": [5, 10, 15]
     },
     "render_period": 5
 }

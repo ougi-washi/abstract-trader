@@ -2,734 +2,272 @@
 
 #include "json.h"
 #include <stdlib.h>
+#include <stdio.h>
+#include <ctype.h>
 #include <string.h>
+#include <assert.h>
 
-at_json at_parse_json(const c8* data){
-    at_json json;
-    json.data = (c8* )malloc(strlen(data) + 1);
-    if (!json.data){
-        json.size = 0;
-        return json;
+static c8 *json_strdup(const c8 *src) {
+    c8 *dest = malloc(strlen(src) + 1);
+    if (dest) strcpy(dest, src);
+    return dest;
+}
+
+static const c8 *skip_whitespace(const c8 *str) {
+    while (isspace(*str)) str++;
+    return str;
+}
+
+static const c8 *parse_string(const c8 *json, c8 **out) {
+    json++; // Skip the opening quote
+    const c8 *start = json;
+    while (*json && *json != '\"') json++;
+    *out = json_strdup(start);
+    (*out)[json - start] = '\0';
+    return (*json == '\"') ? json + 1 : NULL; // Skip the closing quote
+}
+
+static const c8 *parse_number(const c8 *json, f64 *out) {
+    c8 *end;
+    *out = strtod(json, &end);
+    return end;
+}
+
+static const c8 *parse_value(const c8 *json, at_json **out) {
+    json = skip_whitespace(json);
+    if (*json == '\"') { // String
+        *out = malloc(sizeof(at_json));
+        (*out)->type = AT_JSON_STRING;
+        json = parse_string(json, &((*out)->string));
+    } else if (isdigit(*json) || *json == '-') { // Number
+        *out = malloc(sizeof(at_json));
+        (*out)->type = AT_JSON_NUMBER;
+        json = parse_number(json, &((*out)->number));
+    } else if (*json == '{') { // Object
+        *out = malloc(sizeof(at_json));
+        (*out)->type = AT_JSON_OBJECT;
+        (*out)->size = 0;
+        (*out)->object = NULL;
+        json++;
+        while (*json && *json != '}') {
+            json = skip_whitespace(json);
+            c8 *key;
+            json = parse_string(json, &key);
+            json = skip_whitespace(json);
+            if (*json++ != ':') break; // Skip ':'
+            at_json *value;
+            json = parse_value(json, &value);
+            value->key = key;
+
+            (*out)->object = realloc((*out)->object, (++(*out)->size) * sizeof(at_json *));
+            (*out)->object[(*out)->size - 1] = value;
+            json = skip_whitespace(json);
+            if (*json == ',') json++; // Skip ','
+        }
+        json++; // Skip '}'
+    } else if (*json == '[') { // Array
+        *out = malloc(sizeof(at_json));
+        (*out)->type = AT_JSON_ARRAY;
+        (*out)->size = 0;
+        (*out)->object = NULL;
+        json++;
+        while (*json && *json != ']') {
+            at_json *value;
+            json = parse_value(json, &value);
+            (*out)->object = realloc((*out)->object, (++(*out)->size) * sizeof(at_json *));
+            (*out)->object[(*out)->size - 1] = value;
+            json = skip_whitespace(json);
+            if (*json == ',') json++; // Skip ','
+        }
+        json++; // Skip ']'
+    } else if (!strncmp(json, "true", 4)) { // Boolean true
+        *out = malloc(sizeof(at_json));
+        (*out)->type = AT_JSON_BOOL;
+        (*out)->boolean = 1;
+        json += 4;
+    } else if (!strncmp(json, "false", 5)) { // Boolean false
+        *out = malloc(sizeof(at_json));
+        (*out)->type = AT_JSON_BOOL;
+        (*out)->boolean = 0;
+        json += 5;
+    } else if (!strncmp(json, "null", 4)) { // Null
+        *out = malloc(sizeof(at_json));
+        (*out)->type = AT_JSON_NULL;
+        json += 4;
     }
-    strcpy(json.data, data);
-    json.size = strlen(data);
     return json;
 }
 
-void at_free_json(at_json* json){
-    for (sz i = 0; i < json->size; i++){
-        json->data[i] = '\0';
+void at_json_serialize(at_json *value, c8 *buffer, i32 *pos) {
+    if (!value) return;
+    switch (value->type) {
+        case AT_JSON_STRING:
+            *pos += sprintf(buffer + *pos, "\"%s\"", value->string);
+            break;
+        case AT_JSON_NUMBER:
+            *pos += sprintf(buffer + *pos, "%g", value->number);
+            break;
+        case AT_JSON_OBJECT:
+            *pos += sprintf(buffer + *pos, "{");
+            for (i32 i = 0; i < value->size; i++) {
+                if (i > 0) *pos += sprintf(buffer + *pos, ",");
+                *pos += sprintf(buffer + *pos, "\"%s\":", value->object[i]->key);
+                at_json_serialize(value->object[i], buffer, pos);
+            }
+            *pos += sprintf(buffer + *pos, "}");
+            break;
+        case AT_JSON_ARRAY:
+            *pos += sprintf(buffer + *pos, "[");
+            for (i32 i = 0; i < value->size; i++) {
+                if (i > 0) *pos += sprintf(buffer + *pos, ",");
+                at_json_serialize(value->object[i], buffer, pos);
+            }
+            *pos += sprintf(buffer + *pos, "]");
+            break;
+        case AT_JSON_BOOL:
+            *pos += sprintf(buffer + *pos, value->boolean ? "true" : "false");
+            break;
+        case AT_JSON_NULL:
+            *pos += sprintf(buffer + *pos, "null");
+            break;
     }
-    free(json->data);
-    json->size = 0;
 }
 
-c8* at_json_get_string(at_json* json, const c8* key){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == key[0]){
-            b8 found = 1;
-            for (sz j = 1; j < strlen(key); j++){
-                if (json->data[i + j] != key[j]){
-                    found = 0;
-                    break;
-                }
-            }
-            if (found){
-                i += strlen(key) + 3;
-                c8* value = (c8* )malloc(1);
-                value[0] = '\0';
-                while (json->data[i] != '"'){
-                    value = (c8* )realloc(value, strlen(value) + 2);
-                    value[strlen(value)] = json->data[i];
-                    value[strlen(value) + 1] = '\0';
-                    i++;
-                }
-                return value;
-            }
+void at_json_free(at_json *value) {
+    if (!value) return;
+    if (value->type == AT_JSON_STRING) free(value->string);
+    else if (value->type == AT_JSON_OBJECT || value->type == AT_JSON_ARRAY) {
+        for (i32 i = 0; i < value->size; i++) {
+            at_json_free(value->object[i]);
+        }
+        free(value->object);
+    }
+    if (value->key) free(value->key);
+    free(value);
+}
+
+const c8 *at_json_get_string(at_json *value, const c8 *key) {
+    assert(value && key);
+    if (value->type != AT_JSON_OBJECT) return NULL;
+    for (i32 i = 0; i < value->size; i++) {
+        if (strcmp(value->object[i]->key, key) == 0 && value->object[i]->type == AT_JSON_STRING) {
+            return value->object[i]->string;
         }
     }
-    return "";
+    return NULL;
 }
 
-f64 at_json_get_number(at_json* json, const c8* key){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == key[0]){
-            b8 found = 1;
-            for (sz j = 1; j < strlen(key); j++){
-                if (json->data[i + j] != key[j]){
-                    found = 0;
-                    break;
-                }
-            }
-            if (found){
-                i += strlen(key) + 3;
-                c8* value = (c8* )malloc(1);
-                value[0] = '\0';
-                while (json->data[i] != '"'){
-                    value = (c8* )realloc(value, strlen(value) + 2);
-                    value[strlen(value)] = json->data[i];
-                    value[strlen(value) + 1] = '\0';
-                    i++;
-                }
-                return atof(value);
-            }
-        }
-    }
-    return 0;
-}
-
-i32 at_json_get_integer(at_json* json, const c8* key){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == key[0]){
-            b8 found = 1;
-            for (sz j = 1; j < strlen(key); j++){
-                if (json->data[i + j] != key[j]){
-                    found = 0;
-                    break;
-                }
-            }
-            if (found){
-                i += strlen(key) + 3;
-                c8* value = (c8* )malloc(1);
-                value[0] = '\0';
-                while (json->data[i] != '"'){
-                    value = (c8* )realloc(value, strlen(value) + 2);
-                    value[strlen(value)] = json->data[i];
-                    value[strlen(value) + 1] = '\0';
-                    i++;
-                }
-                return atoi(value);
-            }
+i32 at_json_get_int(at_json *value, const c8 *key) {
+    assert(value && key);
+    if (value->type != AT_JSON_OBJECT) return 0;
+    for (i32 i = 0; i < value->size; i++) {
+        if (strcmp(value->object[i]->key, key) == 0 && value->object[i]->type == AT_JSON_NUMBER) {
+            return (i32)value->object[i]->number;
         }
     }
     return 0;
 }
 
-at_json at_json_get_object(at_json* json, const c8* key){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == key[0]){
-            b8 found = 1;
-            for (sz j = 1; j < strlen(key); j++){
-                if (json->data[i + j] != key[j]){
-                    found = 0;
-                    break;
-                }
-            }
-            if (found){
-                i += strlen(key) + 3;
-                c8* value = (c8* )malloc(1);
-                value[0] = '\0';
-                while (json->data[i] != '}'){
-                    value = (c8* )realloc(value, strlen(value) + 2);
-                    value[strlen(value)] = json->data[i];
-                    value[strlen(value) + 1] = '\0';
-                    i++;
-                }
-                return at_parse_json(value);
-            }
+f32 at_json_get_float(at_json *value, const c8 *key) {
+    assert(value && key);
+    if (value->type != AT_JSON_OBJECT) return 0.0f;
+    for (i32 i = 0; i < value->size; i++) {
+        if (strcmp(value->object[i]->key, key) == 0 && value->object[i]->type == AT_JSON_NUMBER) {
+            return (f32)value->object[i]->number;
         }
     }
-    return at_parse_json("");
+    return 0.0f;
 }
 
-at_json at_json_get_array(at_json* json, const c8* key){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == key[0]){
-            b8 found = 1;
-            for (sz j = 1; j < strlen(key); j++){
-                if (json->data[i + j] != key[j]){
-                    found = 0;
-                    break;
-                }
-            }
-            if (found){
-                i += strlen(key) + 3;
-                c8* value = (c8* )malloc(1);
-                value[0] = '\0';
-                while (json->data[i] != ']'){
-                    value = (c8* )realloc(value, strlen(value) + 2);
-                    value[strlen(value)] = json->data[i];
-                    value[strlen(value) + 1] = '\0';
-                    i++;
-                }
-                return at_parse_json(value);
-            }
-        }
-    }
-    return at_parse_json("");
-}
-
-sz at_json_get_array_size(at_json* json){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == '['){
-            sz size = 0;
-            while (json->data[i] != ']'){
-                if (json->data[i] == ','){
-                    size++;
-                }
-                i++;
-            }
-            return size;
+b8 at_json_get_bool(at_json *value, const c8 *key) {
+    assert(value && key);
+    if (value->type != AT_JSON_OBJECT) return 0;
+    for (i32 i = 0; i < value->size; i++) {
+        if (strcmp(value->object[i]->key, key) == 0 && value->object[i]->type == AT_JSON_BOOL) {
+            return value->object[i]->boolean;
         }
     }
     return 0;
 }
 
-at_json at_json_get_array_item(at_json* json, sz index){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == '['){
-            sz size = 0;
-            while (json->data[i] != ']'){
-                if (json->data[i] == ','){
-                    size++;
-                }
-                if (size == index){
-                    c8* value = (c8* )malloc(1);
-                    value[0] = '\0';
-                    while (json->data[i] != ','){
-                        value = (c8* )realloc(value, strlen(value) + 2);
-                        value[strlen(value)] = json->data[i];
-                        value[strlen(value) + 1] = '\0';
-                        i++;
-                    }
-                    return at_parse_json(value);
-                }
-                i++;
-            }
+at_json *at_json_get_object(at_json *value, const char *key) {
+    assert(value && key);
+    if (value->type != AT_JSON_OBJECT) return NULL;
+    for (int i = 0; i < value->size; i++) {
+        if (strcmp(value->object[i]->key, key) == 0 && value->object[i]->type == AT_JSON_OBJECT) {
+            return value->object[i];
         }
     }
-    return at_parse_json("");
+    return NULL;
 }
 
-b8 at_json_is_valid(at_json* json){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == '{' || json->data[i] == '['){
-            return 1;
+at_json *at_json_parse(const c8 *json) {
+    at_json *root = NULL;
+    parse_value(skip_whitespace(json), &root);
+    return root;
+}
+
+at_json *at_json_get_array(at_json *value, const c8 *key) {
+    assert(value && key);
+    if (value->type != AT_JSON_OBJECT) return NULL;
+    for (i32 i = 0; i < value->size; i++) {
+        if (strcmp(value->object[i]->key, key) == 0 && value->object[i]->type == AT_JSON_ARRAY) {
+            return value->object[i];
         }
     }
-    return 0;
+    return NULL;
 }
 
-void at_json_print(at_json* json){
-    for (sz i = 0; i < json->size; i++){
-        printf("%c", json->data[i]);
-    }
+at_json *at_json_get_array_item(at_json *array, i32 index) {
+    assert(array && index >= 0 && index < array->size);
+    if (array->type != AT_JSON_ARRAY || index < 0 || index >= array->size) return NULL;
+    return array->object[index];
 }
 
-c8* at_json_to_string(at_json* json){
-    return json->data;
+sz at_json_get_array_size(at_json *array){
+    assert(array);
+    if (array->type != AT_JSON_ARRAY) return 0;
+    return array->size;
 }
 
-void at_json_set_string(at_json* json, const c8* key, const c8* value){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == key[0]){
-            b8 found = 1;
-            for (sz j = 1; j < strlen(key); j++){
-                if (json->data[i + j] != key[j]){
-                    found = 0;
-                    break;
-                }
-            }
-            if (found){
-                i += strlen(key) + 3;
-                while (json->data[i] != '"'){
-                    i++;
-                }
-                i++;
-                sz start = i;
-                while (json->data[i] != '"'){
-                    i++;
-                }
-                sz end = i;
-                for (sz j = start; j < end; j++){
-                    json->data[j] = '\0';
-                }
-                for (sz j = 0; j < strlen(value); j++){
-                    json->data[start + j] = value[j];
-                }
-                return;
-            }
+sz at_json_get_i32_array(at_json *value, const c8 *key, i32 *out_array, sz max_size) {
+    at_json *array = at_json_get_array(value, key);
+    if (!array || array->type != AT_JSON_ARRAY) return 0;
+
+    sz count = 0;
+    for (sz i = 0; i < array->size && count < max_size; i++) {
+        at_json *item = at_json_get_array_item(array, i);
+        if (item && item->type == AT_JSON_NUMBER) {
+            out_array[count++] = (i32)item->number;
         }
     }
+    return count;
 }
 
-void at_json_set_number(at_json* json, const c8* key, f64 value){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == key[0]){
-            b8 found = 1;
-            for (sz j = 1; j < strlen(key); j++){
-                if (json->data[i + j] != key[j]){
-                    found = 0;
-                    break;
-                }
-            }
-            if (found){
-                i += strlen(key) + 3;
-                while (json->data[i] != '"'){
-                    i++;
-                }
-                i++;
-                sz start = i;
-                while (json->data[i] != '"'){
-                    i++;
-                }
-                sz end = i;
-                for (sz j = start; j < end; j++){
-                    json->data[j] = '\0';
-                }
-                c8* str = (c8* )malloc(32);
-                sprintf(str, "%f", value);
-                for (sz j = 0; j < strlen(str); j++){
-                    json->data[start + j] = str[j];
-                }
-                return;
-            }
+sz at_json_get_u32_array(at_json *value, const c8 *key, u32 *out_array, sz max_size) {
+    at_json *array = at_json_get_array(value, key);
+    if (!array || array->type != AT_JSON_ARRAY) return 0;
+
+    sz count = 0;
+    for (sz i = 0; i < array->size && count < max_size; i++) {
+        at_json *item = at_json_get_array_item(array, i);
+        if (item && item->type == AT_JSON_NUMBER) {
+            out_array[count++] = (u32)item->number;
         }
     }
+    return count;
 }
 
-void at_json_set_integer(at_json* json, const c8* key, i32 value){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == key[0]){
-            b8 found = 1;
-            for (sz j = 1; j < strlen(key); j++){
-                if (json->data[i + j] != key[j]){
-                    found = 0;
-                    break;
-                }
-            }
-            if (found){
-                i += strlen(key) + 3;
-                while (json->data[i] != '"'){
-                    i++;
-                }
-                i++;
-                sz start = i;
-                while (json->data[i] != '"'){
-                    i++;
-                }
-                sz end = i;
-                for (sz j = start; j < end; j++){
-                    json->data[j] = '\0';
-                }
-                c8* str = (c8* )malloc(32);
-                sprintf(str, "%d", value);
-                for (sz j = 0; j < strlen(str); j++){
-                    json->data[start + j] = str[j];
-                }
-                return;
-            }
+sz at_json_get_string_array(at_json *value, const c8 *key, c8 **out_array, sz max_size) {
+    at_json *array = at_json_get_array(value, key);
+    if (!array || array->type != AT_JSON_ARRAY) return 0;
+
+    sz count = 0;
+    for (sz i = 0; i < array->size && count < max_size; i++) {
+        at_json *item = at_json_get_array_item(array, i);
+        if (item && item->type == AT_JSON_STRING) {
+            out_array[count++] = json_strdup(item->string); // Duplicate the string to avoid overwriting
         }
     }
+    return count;
 }
-
-void at_json_set_object(at_json* json, const c8* key, at_json* value){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == key[0]){
-            b8 found = 1;
-            for (sz j = 1; j < strlen(key); j++){
-                if (json->data[i + j] != key[j]){
-                    found = 0;
-                    break;
-                }
-            }
-            if (found){
-                i += strlen(key) + 3;
-                while (json->data[i] != '{'){
-                    i++;
-                }
-                i++;
-                sz start = i;
-                while (json->data[i] != '}'){
-                    i++;
-                }
-                sz end = i;
-                for (sz j = start; j < end; j++){
-                    json->data[j] = '\0';
-                }
-                for (sz j = 0; j < value->size; j++){
-                    json->data[start + j] = value->data[j];
-                }
-                return;
-            }
-        }
-    }
-}
-
-void at_json_set_array(at_json* json, const c8* key, at_json* value){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == key[0]){
-            b8 found = 1;
-            for (sz j = 1; j < strlen(key); j++){
-                if (json->data[i + j] != key[j]){
-                    found = 0;
-                    break;
-                }
-            }
-            if (found){
-                i += strlen(key) + 3;
-                while (json->data[i] != '['){
-                    i++;
-                }
-                i++;
-                sz start = i;
-                while (json->data[i] != ']'){
-                    i++;
-                }
-                sz end = i;
-                for (sz j = start; j < end; j++){
-                    json->data[j] = '\0';
-                }
-                for (sz j = 0; j < value->size; j++){
-                    json->data[start + j] = value->data[j];
-                }
-                return;
-            }
-        }
-    }
-}
-
-void at_json_set_array_item(at_json* json, sz index, at_json* value){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == '['){
-            sz size = 0;
-            while (json->data[i] != ']'){
-                if (json->data[i] == ','){
-                    size++;
-                }
-                i++;
-            }
-            if (index > size){
-                return;
-            }
-            i = 0;
-            while (json->data[i] != '['){
-                i++;
-            }
-            i++;
-            sz start = i;
-            while (json->data[i] != ']'){
-                if (size == index){
-                    break;
-                }
-                if (json->data[i] == ','){
-                    size--;
-                }
-                i++;
-            }
-            i++;
-            sz end = i;
-            for (sz j = start; j < end; j++){
-                json->data[j] = '\0';
-            }
-            for (sz j = 0; j < value->size; j++){
-                json->data[start + j] = value->data[j];
-            }
-            return;
-        }
-    }
-}
-
-void at_json_remove(at_json* json, const c8* key){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == key[0]){
-            b8 found = 1;
-            for (sz j = 1; j < strlen(key); j++){
-                if (json->data[i + j] != key[j]){
-                    found = 0;
-                    break;
-                }
-            }
-            if (found){
-                i += strlen(key) + 3;
-                while (json->data[i] != ':'){
-                    i++;
-                }
-                i++;
-                while (json->data[i] != ',' && json->data[i] != '}'){
-                    for (sz j = i; j < json->size; j++){
-                        json->data[j] = json->data[j + 1];
-                    }
-                }
-                return;
-            }
-        }
-    }
-}
-
-void at_json_remove_array_item(at_json* json, sz index){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == '['){
-            sz size = 0;
-            while (json->data[i] != ']'){
-                if (json->data[i] == ','){
-                    size++;
-                }
-                i++;
-            }
-            if (index > size){
-                return;
-            }
-            i = 0;
-            while (json->data[i] != '['){
-                i++;
-            }
-            i++;
-            sz start = i;
-            while (json->data[i] != ']'){
-                if (size == index){
-                    break;
-                }
-                if (json->data[i] == ','){
-                    size--;
-                }
-                i++;
-            }
-            i++;
-            sz end = i;
-            for (sz j = start; j < end; j++){
-                json->data[j] = '\0';
-            }
-            for (sz j = end; j < json->size; j++){
-                json->data[j] = json->data[j + 1];
-            }
-            return;
-        }
-    }
-}
-
-void at_json_clear(at_json* json){
-    for (sz i = 0; i < json->size; i++){
-        json->data[i] = '\0';
-    }
-    json->size = 0;
-}
-
-b8 at_json_has_key(at_json* json, const c8* key){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == key[0]){
-            b8 found = 1;
-            for (sz j = 1; j < strlen(key); j++){
-                if (json->data[i + j] != key[j]){
-                    found = 0;
-                    break;
-                }
-            }
-            if (found){
-                return 1;
-            }
-        }
-    }
-    return 0;
-}
-
-b8 at_json_has_index(at_json* json, sz index){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == '['){
-            sz size = 0;
-            while (json->data[i] != ']'){
-                if (json->data[i] == ','){
-                    size++;
-                }
-                i++;
-            }
-            if (index > size){
-                return 0;
-            }
-            return 1;
-        }
-    }
-    return 0;
-}
-
-b8 at_json_is_string(at_json* json, const c8* key){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == key[0]){
-            b8 found = 1;
-            for (sz j = 1; j < strlen(key); j++){
-                if (json->data[i + j] != key[j]){
-                    found = 0;
-                    break;
-                }
-            }
-            if (found){
-                i += strlen(key) + 3;
-                while (json->data[i] != '"'){
-                    i++;
-                }
-                return 1;
-            }
-        }
-    }
-    return 0;
-}
-
-b8 at_json_is_number(at_json* json, const c8* key){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == key[0]){
-            b8 found = 1;
-            for (sz j = 1; j < strlen(key); j++){
-                if (json->data[i + j] != key[j]){
-                    found = 0;
-                    break;
-                }
-            }
-            if (found){
-                i += strlen(key) + 3;
-                while (json->data[i] != '"'){
-                    i++;
-                }
-                return 1;
-            }
-        }
-    }
-    return 0;
-}
-
-b8 at_json_is_integer(at_json* json, const c8* key){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == key[0]){
-            b8 found = 1;
-            for (sz j = 1; j < strlen(key); j++){
-                if (json->data[i + j] != key[j]){
-                    found = 0;
-                    break;
-                }
-            }
-            if (found){
-                i += strlen(key) + 3;
-                while (json->data[i] != '"'){
-                    i++;
-                }
-                return 1;
-            }
-        }
-    }
-    return 0;
-}
-
-b8 at_json_is_object(at_json* json, const c8* key){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == key[0]){
-            b8 found = 1;
-            for (sz j = 1; j < strlen(key); j++){
-                if (json->data[i + j] != key[j]){
-                    found = 0;
-                    break;
-                }
-            }
-            if (found){
-                return 1;
-            }
-        }
-    }
-    return 0;
-}
-
-b8 at_json_is_array(at_json* json, const c8* key){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == key[0]){
-            b8 found = 1;
-            for (sz j = 1; j < strlen(key); j++){
-                if (json->data[i + j] != key[j]){
-                    found = 0;
-                    break;
-                }
-            }
-            if (found){
-                return 1;
-            }
-        }
-    }
-    return 0;
-}
-
-b8 at_json_is_null(at_json* json, const c8* key){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == key[0]){
-            b8 found = 1;
-            for (sz j = 1; j < strlen(key); j++){
-                if (json->data[i + j] != key[j]){
-                    found = 0;
-                    break;
-                }
-            }
-            if (found){
-                i += strlen(key) + 3;
-                if (json->data[i] == 'n' && json->data[i + 1] == 'u' && json->data[i + 2] == 'l' && json->data[i + 3] == 'l'){
-                    return 1;
-                }
-            }
-        }
-    }
-    return 0;
-}
-
-b8 at_json_is_true(at_json* json, const c8* key){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == key[0]){
-            b8 found = 1;
-            for (sz j = 1; j < strlen(key); j++){
-                if (json->data[i + j] != key[j]){
-                    found = 0;
-                    break;
-                }
-            }
-            if (found){
-                i += strlen(key) + 3;
-                if (json->data[i] == 't' && json->data[i + 1] == 'r' && json->data[i + 2] == 'u' && json->data[i + 3] == 'e'){
-                    return 1;
-                }
-            }
-        }
-    }
-    return 0;
-}
-
-b8 at_json_is_false(at_json* json, const c8* key){
-    for (sz i = 0; i < json->size; i++){
-        if (json->data[i] == key[0]){
-            b8 found = 1;
-            for (sz j = 1; j < strlen(key); j++){
-                if (json->data[i + j] != key[j]){
-                    found = 0;
-                    break;
-                }
-            }
-            if (found){
-                i += strlen(key) + 3;
-                if (json->data[i] == 'f' && json->data[i + 1] == 'a' && json->data[i + 2] == 'l' && json->data[i + 3] == 's' && json->data[i + 4] == 'e'){
-                    return 1;
-                }
-            }
-        }
-    }
-    return 0;
-}
-
-b8 at_json_is_empty(at_json* json){
-    return json->size == 0;
-}
-
-b8 at_json_is_equal(at_json* json1, at_json* json2){
-    return strcmp(json1->data, json2->data) == 0;
-}
-
-at_json at_json_copy(at_json* json){
-    return at_parse_json(json->data);
-}
-
-void at_json_merge(at_json* json1, at_json* json2){
-    json1->data = (c8* )realloc(json1->data, json1->size + json2->size + 1);
-}
-
-void at_json_merge_recursive(at_json* json1, at_json* json2){
-    for (sz i = 0; i < json2->size; i++){
-        if (json2->data[i] == '{' || json2->data[i] == '['){
-            at_json json = at_parse_json(json2->data + i);
-            at_json_merge_recursive(json1, &json);
-        }
-    }
-    at_json_merge(json1, json2);
-}
-
