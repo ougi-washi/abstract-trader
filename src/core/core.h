@@ -2,6 +2,7 @@
 #pragma once
 
 #include "types.h"
+#include "array.h"
 #include <stdlib.h>
 
 typedef u32 at_id;
@@ -10,11 +11,7 @@ typedef struct at_tick {
     f64 price;
     f64 volume;
 } at_tick;
-
-typedef struct at_ticks {
-    at_tick* ticks;
-    sz count;
-} at_ticks;
+AT_DECLARE_ARRAY(at_tick, 10000000);
 
 typedef struct at_candle {
     f64 open;
@@ -24,19 +21,20 @@ typedef struct at_candle {
     f64 volume;
     f64 adj_close;
 } at_candle;
+AT_DECLARE_ARRAY(at_candle, 10000000);
 
 typedef struct at_candles {
     u32 period;
-    at_candle* candles;
+    at_candle_array candles;
     sz count;
 } at_candles;
 
+#define AT_MAX_NAME_LENGTH 32
 typedef struct at_symbol {
-    c8* name;
-    c8* exchange;
-    c8* currency;
-    sz tick_count;
-    at_tick* ticks;
+    c8 name[AT_MAX_NAME_LENGTH];
+    c8 exchange[AT_MAX_NAME_LENGTH];
+    c8 currency[AT_MAX_NAME_LENGTH];
+    at_tick_array ticks;
 } at_symbol;
 
 typedef struct at_account {
@@ -53,7 +51,7 @@ typedef struct at_account {
 #define AT_DIRECTION_STRING(d) (d == AT_DIRECTION_LONG ? "LONG" : "SHORT")
 typedef struct at_position {
     // configuration
-    c8* symbol;
+    c8 symbol_name[AT_MAX_NAME_LENGTH];
     u32 volume;
     i8 direction;
     f64 take_profit_price;
@@ -69,6 +67,7 @@ typedef struct at_position {
     u32 open_time;
     u32 close_time;
 } at_position;
+AT_DECLARE_ARRAY(at_position, 100000);
 
 typedef struct at_instance {
     // configuration
@@ -81,10 +80,8 @@ typedef struct at_instance {
     f32 leverage;
 
     // runtime data
-    at_position* open_positions;
-    u32 open_positions_count;
-    at_position* closed_positions;
-    u32 closed_positions_count;
+    at_position_array open_positions;
+    at_position_array closed_positions;
 } at_instance;
 
 typedef void (*on_start_callback)(at_instance* instance);
@@ -96,11 +93,10 @@ typedef struct at_strategy {
     on_start_callback on_start;
     on_tick_callback on_tick;
 
-    u32* candles_periods;
-    sz candles_periods_count;
-    at_candles* cached_candles;
+    u32_array candles_periods;
+    at_candle_array cached_candles;
     sz cached_candles_count;
-    at_ticks cached_ticks;
+    at_tick_array cached_ticks;
     sz non_processed_ticks_count; // ticks that were not
 } at_strategy;
 

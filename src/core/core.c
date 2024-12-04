@@ -18,47 +18,30 @@ at_id at_new_id(){
 
 void at_init_symbol(at_symbol* symbol, const c8* name, const c8* exchange, const c8* currency, sz tick_count){
     assert(symbol && name && exchange && currency);
-    symbol->name = (c8*)malloc(strlen(name) + 1);
     strcpy(symbol->name, name);
-    symbol->exchange = (c8*)malloc(strlen(exchange) + 1);
     strcpy(symbol->exchange, exchange);
-    symbol->currency = (c8*)malloc(strlen(currency) + 1);
     strcpy(symbol->currency, currency);
-    symbol->tick_count = tick_count;
-    if (tick_count > 0) {
-        symbol->ticks = (at_tick*)malloc(sizeof(at_tick) * tick_count);
-        assert(symbol->ticks);
-    }
-    else {
-        symbol->ticks = NULL;
-    }
 }
 
 void at_add_tick(at_symbol* symbol, at_tick* tick){
     assert(symbol);
-    symbol->tick_count++;
-    symbol->ticks = (at_tick* )realloc(symbol->ticks, sizeof(at_tick)*  symbol->tick_count);
-    assert(symbol->ticks);
-    symbol->ticks[symbol->tick_count - 1] =* tick;
+    AT_ARRAY_ADD(symbol->ticks, *tick);
 }
 
 void at_add_ticks(at_symbol* symbol, at_tick* ticks, sz count) {
     assert(symbol && ticks && count > 0);
-    u32 current_count = symbol->tick_count;
-    symbol->tick_count += count;
-    symbol->ticks = (at_tick*)realloc(symbol->ticks, sizeof(at_tick) * symbol->tick_count);
-    assert(symbol->ticks);
-    for (u32 i = 0; i < count; i++) {
-        symbol->ticks[current_count + i] = ticks[i];
+    for (sz i = 0; i < count; i++) {
+        at_add_tick(symbol, &ticks[i]);
     }
 }
 
 at_tick* at_get_tick(at_symbol* symbol, u32 index){
     assert(symbol);
-    if (index < symbol->tick_count){
-        return &symbol->ticks[symbol->tick_count - index - 1];
+    if (index >= AT_ARRAY_SIZE(symbol->ticks)){
+        log_error("Index out of bounds");
+        return NULL;
     }
-    return NULL;
+    return &AT_ARRAY_GET(symbol->ticks, index);
 }
 
 at_tick* at_get_last_tick(at_symbol* symbol){

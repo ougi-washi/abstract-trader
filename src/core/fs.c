@@ -7,6 +7,8 @@
 #ifdef _WIN32
 #include <direct.h>
 #define mkdir _mkdir
+#else
+#include <sys/stat.h>
 #endif
 
 void ensure_directory(const c8* path) {
