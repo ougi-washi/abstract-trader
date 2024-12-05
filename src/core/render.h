@@ -23,7 +23,7 @@ extern void at_add_render_object(at_render* render, at_render_object* object);
 extern void at_remove_render_object(at_render* render, at_render_object* object);
 void at_free_render_object(at_render_object* object);
 
-extern void at_candles_to_render_object(at_candle* candles, sz candle_count, at_render_object* object);
+extern void at_candles_to_render_object(at_candle_array* candles, at_render_object* object);
 extern void at_ticks_to_render_object(at_tick* ticks, sz tick_count, at_render_object* object);
 
 GLuint at_compile_shader(const c8* vertex_src, const c8* fragment_src);

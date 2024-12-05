@@ -2,6 +2,7 @@
 #pragma once
 
 #include "types.h"
+#include "array.h"
 
 // HEAVY WIP, not recommended for production use
 
@@ -17,6 +18,11 @@ typedef struct at_json {
     };
     sz size; // Object/Array size
 } at_json;
+// Default array is 1024, you can use AT_DECLARE_DYNAMIC_ARRAY to create a dynamic array with higher capacity
+#define AT_JSON_DEFAULT_ARRAY_SIZE 1024
+AT_DECLARE_ARRAY(at_json, AT_JSON_DEFAULT_ARRAY_SIZE);
+AT_DECLARE_PTR_ARRAY(at_json, AT_JSON_DEFAULT_ARRAY_SIZE);
+AT_DECLARE_DYNAMIC_ARRAY(at_json);
 
 extern at_json *at_json_parse(const c8 *json);
 extern void at_json_free(at_json *value);
@@ -29,11 +35,11 @@ extern at_json *at_json_get_object(at_json *value, const char *key);
 extern at_json *at_json_get_array(at_json *value, const c8 *key);
 extern at_json *at_json_get_array_item(at_json *array, i32 index);
 extern sz at_json_get_array_size(at_json *array);
-extern sz at_json_get_i32_array(at_json *value, const c8 *key, i32 *out_array, sz max_size);
-extern sz at_json_get_u32_array(at_json *value, const c8 *key, u32 *out_array, sz max_size);
-extern sz at_json_get_string_array(at_json *value, const c8 *key, c8 **out_array, sz max_size);
-extern b8 at_json_get_bool_array(at_json *value, const c8 *key, b8 *out_array, sz max_size);
-extern b8 at_json_get_object_array(at_json *value, const c8 *key, at_json **out_array, sz max_size);
+extern sz at_json_get_i32_array(at_json *value, const c8 *key, i32_array *out_array);
+extern sz at_json_get_u32_array(at_json *value, const c8 *key, u32_array *out_array);
+extern sz at_json_get_string_array(at_json *value, const c8 *key, c8_ptr_array *out_array);
+extern b8 at_json_get_bool_array(at_json *value, const c8 *key, b8_array *out_array);
+extern b8 at_json_get_object_array(at_json *value, const c8 *key, at_json_ptr_array *out_array);
 
 // helpers for writing
 void serialize_string(const c8* key, const c8* value, c8* buffer, i32* pos);

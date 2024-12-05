@@ -230,71 +230,76 @@ sz at_json_get_array_size(at_json *array){
     return array->size;
 }
 
-sz at_json_get_i32_array(at_json *value, const c8 *key, i32 *out_array, sz max_size) {
+sz at_json_get_i32_array(at_json *value, const c8 *key, i32_array *out_array){
     at_json *array = at_json_get_array(value, key);
     if (!array || array->type != AT_JSON_ARRAY) return 0;
 
     sz count = 0;
-    for (sz i = 0; i < array->size && count < max_size; i++) {
+    for (sz i = 0; i < array->size; i++) {
         at_json *item = at_json_get_array_item(array, i);
         if (item && item->type == AT_JSON_NUMBER) {
-            out_array[count++] = (i32)item->number;
+            AT_ARRAY_ADD(*out_array, (i32)item->number);
+            count++;
         }
     }
     return count;
 }
 
-sz at_json_get_u32_array(at_json *value, const c8 *key, u32 *out_array, sz max_size) {
+sz at_json_get_u32_array(at_json *value, const c8 *key, u32_array *out_array){
     at_json *array = at_json_get_array(value, key);
     if (!array || array->type != AT_JSON_ARRAY) return 0;
 
     sz count = 0;
-    for (sz i = 0; i < array->size && count < max_size; i++) {
+    for (sz i = 0; i < array->size; i++) {
         at_json *item = at_json_get_array_item(array, i);
         if (item && item->type == AT_JSON_NUMBER) {
-            out_array[count++] = (u32)item->number;
+            AT_ARRAY_ADD(*out_array, (u32)item->number);
+            count++;
         }
     }
     return count;
 }
 
-sz at_json_get_string_array(at_json *value, const c8 *key, c8 **out_array, sz max_size) {
+sz at_json_get_string_array(at_json *value, const c8 *key, c8_ptr_array *out_array){
     at_json *array = at_json_get_array(value, key);
     if (!array || array->type != AT_JSON_ARRAY) return 0;
 
     sz count = 0;
-    for (sz i = 0; i < array->size && count < max_size; i++) {
+    for (sz i = 0; i < array->size; i++) {
         at_json *item = at_json_get_array_item(array, i);
         if (item && item->type == AT_JSON_STRING) {
-            out_array[count++] = json_strdup(item->string); // Duplicate the string to avoid overwriting
+            AT_ARRAY_ADD(*out_array, json_strdup(item->string)); // Duplicate the string to avoid overwriting
+            count++;
         }
     }
     return count;
 }
 
-b8 at_json_get_bool_array(at_json *value, const c8 *key, b8 *out_array, sz max_size) {
+b8 at_json_get_bool_array(at_json *value, const c8 *key, b8_array *out_array){
     at_json *array = at_json_get_array(value, key);
     if (!array || array->type != AT_JSON_ARRAY) return 0;
 
     sz count = 0;
-    for (sz i = 0; i < array->size && count < max_size; i++) {
+    for (sz i = 0; i < array->size; i++) {
         at_json *item = at_json_get_array_item(array, i);
         if (item && item->type == AT_JSON_BOOL) {
-            out_array[count++] = item->boolean;
+            AT_ARRAY_ADD(*out_array, item->boolean);
+            count++;
         }
     }
     return count;
 }
 
-b8 at_json_get_object_array(at_json *value, const c8 *key, at_json **out_array, sz max_size){
+b8 at_json_get_object_array(at_json *value, const c8 *key, at_json_ptr_array *out_array){
     at_json *array = at_json_get_array(value, key);
     if (!array || array->type != AT_JSON_ARRAY) return 0;
 
     sz count = 0;
-    for (sz i = 0; i < array->size && count < max_size; i++) {
+    for (sz i = 0; i < array->size; i++) {
         at_json *item = at_json_get_array_item(array, i);
         if (item && item->type == AT_JSON_OBJECT) {
-            out_array[count++] = item;
+            AT_ARRAY_ADD(*out_array, item);
+            count++;
         }
     }
     return count;

@@ -126,7 +126,9 @@ f32 normalize_value(f32 value, f32 min_val, f32 max_val) {
     return normalized;
 }
 
-void at_candles_to_render_object(at_candle *candles, sz candle_count, at_render_object *object) {
+void at_candles_to_render_object(at_candle_array* candles, at_render_object *object) {
+    assert(candles && object);
+    sz candle_count = AT_ARRAY_SIZE(*candles);
     GLfloat* instance_data = malloc(candle_count * 4 * 7 * sizeof(GLfloat));
     GLuint* indices = malloc(candle_count * 6 * sizeof(GLuint));
 
@@ -140,10 +142,11 @@ void at_candles_to_render_object(at_candle *candles, sz candle_count, at_render_
     for (sz i = 0; i < candle_count; ++i) {
         f32 x_left = current_x;
         f32 x_right = current_x + candle_width;
-        f32 y_low = normalize_value(candles[i].low, min_value, max_value);
-        f32 y_high = normalize_value(candles[i].high, min_value, max_value);
+        at_candle* candle = &AT_ARRAY_GET(*candles, i);
+        f32 y_low = normalize_value(candle->low, min_value, max_value);
+        f32 y_high = normalize_value(candle->high, min_value, max_value);
 
-        const i8 candle_direction = at_get_candle_direction(&candles[i]);
+        const i8 candle_direction = at_get_candle_direction(candle);
 
         instance_data[i * 28 + 0] = x_left;  // Bottom left X
         instance_data[i * 28 + 1] = y_low;   // Bottom left Y
