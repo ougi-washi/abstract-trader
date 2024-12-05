@@ -39,7 +39,7 @@
 #define AT_ARRAY_REMOVE_WITH_PREDICATE(_array, _type, _value, _predicate) for (sz j = 0; j < (_array).count; j++) { _type _value = (_array).data[j]; if (_predicate) { AT_ARRAY_REMOVE(_array, j); break; } }
 #define AT_ARRAY_REMOVE_WITH_PTR_PREDICATE(_array, _type, _value, _predicate) for (sz j = 0; j < (_array).count; j++) { _type* _value = &(_array).data[j]; if (_predicate) { AT_ARRAY_REMOVE(_array, j); break; } }
 
-#define AT_ARRAY_DEFAULT_SIZE 1048576
+#define AT_ARRAY_DEFAULT_SIZE 4096
 
 AT_DECLARE_PTR_ARRAY(void, AT_ARRAY_DEFAULT_SIZE);
 AT_DECLARE_PTR_ARRAY(c8, AT_ARRAY_DEFAULT_SIZE);
