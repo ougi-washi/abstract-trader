@@ -101,22 +101,9 @@ i32 main (i32 argc, c8 **argv) {
     AT_ARRAY_FOREACH_PTR(backtest.instance->strategy->candles, at_candle_chunk, candles, {
         log_info("Period: %u, Candles count: %zu", candles->period, AT_ARRAY_SIZE(candles->candles));
         AT_ARRAY_FOREACH_PTR(candles->candles, at_candle, candle, {
+            log_info("Candle: %f %f %f %f %f", candle->open, candle->high, candle->low, candle->close, candle->volume);
         });
     });
-
-
-    // for (sz i = 0; i < backtest.instance->strategy->cached_candles_count; i++) {
-    //     at_candle_chunk *candles = &backtest.instance->strategy->candles[i];
-    //     log_info("Candles count: %zu", candles->count);
-    //     for (sz j = 0; j < candles->count; j++) {
-    //         at_candle *candle = &candles->candles[j];
-    //         log_info("Candle %zu: O: %f, H: %f, L: %f, C: %f, V: %f, AC: %f", j, candle->open, candle->high, candle->low, candle->close, candle->volume, candle->adj_close);
-    //         log_info("Direction: %d", at_get_candle_direction(candle));
-    //     }
-    // }
-    // for (sz i = 0; i < backtest.instance->strategy->candles_periods_count; i++) {
-    //     log_info("Candles period: %u", backtest.instance->strategy->candles_periods[i]);
-    // }
 
     at_candle_chunk* candles = AT_ARRAY_GET_PTR(backtest.instance->strategy->candles, 0);
     at_candles_to_render_object(&candles->candles, &object);

@@ -133,6 +133,9 @@ void at_update_candles(at_candle_chunk *candles){
 
     at_tick* first_tick = AT_ARRAY_GET_PTR(candles->extra_ticks, 0);
     u64 start_time = first_tick->timestamp - (first_tick->timestamp % candle_period);
+
+    sz_array ticks_to_remove = {0};
+
     // Iterate over ticks and assign them to candles
     for (sz i = 0; i < tick_count; ++i) {
         at_tick* tick = AT_ARRAY_GET_PTR(candles->extra_ticks, i);
@@ -144,6 +147,7 @@ void at_update_candles(at_candle_chunk *candles){
             new_candle.timestamp = start_time;
             AT_ARRAY_ADD(*candles_array, new_candle);
             start_time += candle_period;
+            AT_ARRAY_ADD(ticks_to_remove, i);
         }
 
         at_candle* current_candle = AT_ARRAY_LAST_PTR(*candles_array);
@@ -158,6 +162,14 @@ void at_update_candles(at_candle_chunk *candles){
         current_candle->low = tick->price < current_candle->low ? tick->price : current_candle->low;
     }
 
+    // Remove used ticks
+    // AT_ARRAY_FOREACH_REVERSE(ticks_to_remove, sz, tick_index, {
+    //     if (tick_index == AT_ARRAY_INDEX){
+    //         AT_ARRAY_REMOVE(candles->extra_ticks, tick_index);
+    //     }
+    // });
+    // AT_ARRAY_REMOVE_WITH_PTR_PREDICATE(candles->extra_ticks, at_tick, tick, AT_ARRAY_CONTAINS(ticks_to_remove, AT_ARRAY_RM_INDEX));
+    
 }
 
 i8 at_get_candle_direction(at_candle* candle){
@@ -314,7 +326,7 @@ void at_serialize_strategy(const at_strategy *strategy, c8 *buffer, i32 *pos)
     serialize_comma(buffer, pos);
     serialize_array_start("candles_periods", buffer, pos);
     AT_ARRAY_FOREACH(strategy->candles, at_candle_chunk, candles, {
-        if (i > 0) serialize_comma(buffer, pos);
+        if (AT_ARRAY_INDEX > 0) serialize_comma(buffer, pos);
         *pos += sprintf(buffer + *pos, "%u", candles.period);
     });
     serialize_array_end(buffer, pos);
@@ -435,14 +447,14 @@ void at_serialize_instance(const at_instance *instance, c8 *buffer, i32 *pos){
     serialize_comma(buffer, pos);
     serialize_array_start("open_positions", buffer, pos);
     AT_ARRAY_FOREACH_CONST_PTR(instance->open_positions, at_position, position, {
-        if (i > 0) serialize_comma(buffer, pos);
+        if (AT_ARRAY_INDEX > 0) serialize_comma(buffer, pos);
         at_serialize_position(position, buffer, pos);
     });
     serialize_array_end(buffer, pos);
     serialize_comma(buffer, pos);
     serialize_array_start("closed_positions", buffer, pos);
     AT_ARRAY_FOREACH_CONST_PTR(instance->closed_positions, at_position, position, {
-        if (i > 0) serialize_comma(buffer, pos);
+        if (AT_ARRAY_INDEX > 0) serialize_comma(buffer, pos);
         at_serialize_position(position, buffer, pos);
     });
     serialize_array_end(buffer, pos);
